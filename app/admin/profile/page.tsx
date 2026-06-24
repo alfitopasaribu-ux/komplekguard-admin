@@ -15,6 +15,7 @@ export default function ProfilePage() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [everSaved, setEverSaved] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const cameraFrontRef = useRef<HTMLInputElement>(null);
@@ -100,6 +101,7 @@ const getAvatar = () => {
       else if (!data.user?.image) setImageBytes(null);
       setRemoveImage(false);
       setCurrentPassword(""); setNewPassword(""); setConfirmPassword("");
+      setEverSaved(true);
       toast.success("Profil berhasil disimpan!");
     } catch (e: any) {
       toast.error(e.message);
@@ -218,7 +220,7 @@ const getAvatar = () => {
 
       <button onClick={save} disabled={saving} className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 disabled:opacity-50 text-black font-bold transition">
         <Save className="w-4 h-4" />
-        {saving ? "Menyimpan..." : "Simpan Profil"}
+        {saving ? "Menyimpan..." : everSaved ? "Ganti Profil" : "Simpan Profil"}
       </button>
     </div>
   );

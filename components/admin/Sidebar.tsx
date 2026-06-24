@@ -53,8 +53,12 @@ export default function AdminSidebar({ user }: { user: any }) {
 
       <div className="p-4 border-t border-white/5">
         <div className="flex items-center gap-3 px-3 py-2.5 mb-2 rounded-xl bg-white/[0.03]">
-          <div className="w-8 h-8 rounded-lg bg-cyan-500 flex items-center justify-center text-black text-xs font-bold flex-shrink-0">
-            {user?.name?.charAt(0)?.toUpperCase() || "A"}
+          <div className="w-8 h-8 rounded-lg bg-cyan-500 flex-shrink-0 overflow-hidden">
+            {user?.image ? (
+              <img src={user.image} alt="avatar" className="w-full h-full object-cover rounded-lg" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-black text-xs font-bold">{user?.name?.charAt(0)?.toUpperCase() || "A"}</div>
+            )}
           </div>
           <div className="min-w-0">
             <p className="text-xs font-medium text-white truncate">{user?.name}</p>
