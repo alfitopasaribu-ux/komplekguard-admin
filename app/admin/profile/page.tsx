@@ -32,7 +32,7 @@ export default function ProfilePage() {
   const handleImage = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 2_000_000) { toast.error("Ukuran foto maksimal 2MB"); return; }
+    if (file.size > 5_000_000) { toast.error("Ukuran foto maksimal 5MB"); return; }
     const reader = new FileReader();
     reader.onload = () => { setImageBytes(reader.result as string); setRemoveImage(false); };
     reader.readAsDataURL(file);
@@ -193,3 +193,4 @@ export default function ProfilePage() {
     </div>
   );
 }
+
