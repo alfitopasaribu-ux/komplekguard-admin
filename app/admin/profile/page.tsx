@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useEffect, useState, useRef } from "react";
 import { User, Phone, MapPin, Lock, Save, Camera, Shield, X, Trash2 } from "lucide-react";
 import { toast } from "sonner";
