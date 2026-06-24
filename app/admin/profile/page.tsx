@@ -16,6 +16,7 @@ export default function ProfilePage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [everSaved, setEverSaved] = useState(false);
+  const [showPhotoMenu, setShowPhotoMenu] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const cameraFrontRef = useRef<HTMLInputElement>(null);
@@ -218,7 +219,24 @@ const getAvatar = () => {
         </div>
       </div>
 
-      <button onClick={save} disabled={saving} className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 disabled:opacity-50 text-black font-bold transition">
+      {everSaved && showPhotoMenu && (
+        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 space-y-2">
+          <p className="text-xs text-white/40 font-mono uppercase mb-3">Pilih sumber foto</p>
+          <button onClick={() => { fileRef.current?.click(); setShowPhotoMenu(false); }} className="flex items-center gap-3 w-full px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-white text-sm transition">
+            <Camera className="w-4 h-4 text-cyan-400" /> Galeri
+          </button>
+          <button onClick={() => { cameraRef.current?.click(); setShowPhotoMenu(false); }} className="flex items-center gap-3 w-full px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-white text-sm transition">
+            <Camera className="w-4 h-4 text-cyan-400" /> Kamera Belakang
+          </button>
+          <button onClick={() => { cameraFrontRef.current?.click(); setShowPhotoMenu(false); }} className="flex items-center gap-3 w-full px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-white text-sm transition">
+            <Camera className="w-4 h-4 text-cyan-400" /> Kamera Depan
+          </button>
+          <button onClick={() => setShowPhotoMenu(false)} className="flex items-center gap-3 w-full px-4 py-3 rounded-xl bg-white/5 hover:bg-red-500/10 text-white/40 hover:text-red-400 text-sm transition">
+            <X className="w-4 h-4" /> Batal
+          </button>
+        </div>
+      )}
+      <button onClick={everSaved ? () => setShowPhotoMenu(true) : save} disabled={saving} className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 disabled:opacity-50 text-black font-bold transition">
         <Save className="w-4 h-4" />
         {saving ? "Menyimpan..." : everSaved ? "Ganti Profil" : "Simpan Profil"}
       </button>
