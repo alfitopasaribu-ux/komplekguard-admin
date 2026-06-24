@@ -23,8 +23,9 @@ export default function ProfilePage() {
     fetch("/api/admin/profile").then(r => r.json()).then(d => {
       setUser(d.user);
       setName(d.user?.name || "");
-      setPhone("");
-      setAddress("");
+      setPhone(d.user?.phone || "");
+      setAddress(d.user?.address || "");
+      if (d.user?.image) setImageBytes(d.user.image);
       setLoading(false);
     });
   }, []);
@@ -93,6 +94,10 @@ const getAvatar = () => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Gagal menyimpan");
       setUser(data.user);
+      setPhone(data.user?.phone || "");
+      setAddress(data.user?.address || "");
+      if (data.user?.image) setImageBytes(data.user.image);
+      else if (!data.user?.image) setImageBytes(null);
       setRemoveImage(false);
       setCurrentPassword(""); setNewPassword(""); setConfirmPassword("");
       toast.success("Profil berhasil disimpan!");
