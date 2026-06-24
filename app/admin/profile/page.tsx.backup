@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useEffect, useState, useRef } from "react";
 import { User, Phone, MapPin, Lock, Save, Camera, Shield, X, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -29,18 +29,14 @@ export default function ProfilePage() {
     });
   }, []);
 
-      img.onload = () => {
-      const MAX = 600;
-      let w = img.width, h = img.height;
-      if (w > h && w > MAX) { h = (h * MAX) / w; w = MAX; }
-      else if (h > MAX) { w = (w * MAX) / h; h = MAX; }
-      canvas.width = w; canvas.height = h;
-      canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
-      const compressed = canvas.toDataURL("image/jpeg", 0.6);
-      setImageBytes(compressed);
-      setRemoveImage(false);
-      URL.revokeObjectURL(url);
-    };
+  const handleImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5_000_000) { toast.error("Ukuran foto maksimal 5MB"); return; }
+    const reader = new FileReader();
+    reader.onload = () => { setImageBytes(reader.result as string); setRemoveImage(false); };
+    reader.readAsDataURL(file);
+  };
 
   const getAvatar = () => {
     if (removeImage) return null;
