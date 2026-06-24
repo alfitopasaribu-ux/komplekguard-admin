@@ -29,20 +29,41 @@ export default function ProfilePage() {
     });
   }, []);
 
-      img.onload = () => {
-      const MAX = 600;
-      let w = img.width, h = img.height;
-      if (w > h && w > MAX) { h = (h * MAX) / w; w = MAX; }
-      else if (h > MAX) { w = (w * MAX) / h; h = MAX; }
-      canvas.width = w; canvas.height = h;
-      canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
-      const compressed = canvas.toDataURL("image/jpeg", 0.6);
+  const handleImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    if (file.size > 15_000_000) { toast.error("Ukuran foto maksimal 15MB"); return; }
+    try {
+      toast.loading("Memproses foto...", { id: "img-process" });
+      const compressed = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const imgEl = new Image();
+          imgEl.onload = () => {
+            const canvas = document.createElement("canvas");
+            const MAX = 400;
+            let w = imgEl.width, h = imgEl.height;
+            if (w > h) { if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; } }
+            else { if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; } }
+            canvas.width = w; canvas.height = h;
+            const ctx = canvas.getContext("2d");
+            if (!ctx) return reject(new Error("Canvas error"));
+            ctx.drawImage(imgEl, 0, 0, w, h);
+            resolve(canvas.toDataURL("image/jpeg", 0.7));
+          };
+          imgEl.onerror = () => reject(new Error("Gagal membaca gambar"));
+          imgEl.src = ev.target?.result as string;
+        };
+        reader.onerror = () => reject(new Error("Gagal membaca file"));
+        reader.readAsDataURL(file);
+      });
       setImageBytes(compressed);
       setRemoveImage(false);
-      URL.revokeObjectURL(url);
-    };
-
-  const getAvatar = () => {
+      toast.success("Foto berhasil dipilih!", { id: "img-process" });
+    } catch { toast.error("Gagal memproses foto", { id: "img-process" }); }
+  };
+const getAvatar = () => {
     if (removeImage) return null;
     if (imageBytes) return imageBytes;
     if (user?.image) return user.image;
