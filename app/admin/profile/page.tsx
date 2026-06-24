@@ -1,6 +1,6 @@
 ﻿"use client";
 import { useEffect, useState, useRef } from "react";
-import { User, Phone, MapPin, Lock, Save, Camera, Shield } from "lucide-react";
+import { User, Phone, MapPin, Lock, Save, Camera, Shield, X, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 export default function ProfilePage() {
@@ -11,17 +11,20 @@ export default function ProfilePage() {
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [imageBytes, setImageBytes] = useState<string | null>(null);
+  const [removeImage, setRemoveImage] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const cameraFrontRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetch("/api/admin/profile").then(r => r.json()).then(d => {
       setUser(d.user);
       setName(d.user?.name || "");
-      setPhone(d.user?.phone || "");
-      setAddress(d.user?.address || "");
+      setPhone("");
+      setAddress("");
       setLoading(false);
     });
   }, []);
@@ -31,15 +34,18 @@ export default function ProfilePage() {
     if (!file) return;
     if (file.size > 2_000_000) { toast.error("Ukuran foto maksimal 2MB"); return; }
     const reader = new FileReader();
-    reader.onload = () => setImageBytes(reader.result as string);
+    reader.onload = () => { setImageBytes(reader.result as string); setRemoveImage(false); };
     reader.readAsDataURL(file);
   };
 
   const getAvatar = () => {
+    if (removeImage) return null;
     if (imageBytes) return imageBytes;
     if (user?.image) return user.image;
     return null;
   };
+
+  const deletePhoto = () => { setImageBytes(null); setRemoveImage(true); };
 
   const save = async () => {
     if (!name.trim()) { toast.error("Nama tidak boleh kosong"); return; }
@@ -51,6 +57,7 @@ export default function ProfilePage() {
     try {
       const body: any = { name, phone, address };
       if (imageBytes) body.image = imageBytes;
+      if (removeImage) body.image = null;
       if (newPassword) { body.currentPassword = currentPassword; body.newPassword = newPassword; }
 
       const res = await fetch("/api/admin/profile", {
@@ -61,6 +68,7 @@ export default function ProfilePage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Gagal menyimpan");
       setUser(data.user);
+      setRemoveImage(false);
       setCurrentPassword(""); setNewPassword(""); setConfirmPassword("");
       toast.success("Profil berhasil disimpan!");
     } catch (e: any) {
@@ -85,8 +93,8 @@ export default function ProfilePage() {
 
       {/* Avatar */}
       <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
-        <div className="flex items-center gap-6">
-          <div className="relative">
+        <div className="flex items-start gap-6">
+          <div className="relative flex-shrink-0">
             {getAvatar() ? (
               <img src={getAvatar()!} alt="avatar" className="w-20 h-20 rounded-2xl object-cover border-2 border-cyan-500/30" />
             ) : (
@@ -94,18 +102,33 @@ export default function ProfilePage() {
                 {user?.name?.charAt(0)?.toUpperCase() || "A"}
               </div>
             )}
-            <button onClick={() => fileRef.current?.click()} className="absolute -bottom-2 -right-2 w-8 h-8 rounded-lg bg-cyan-500 flex items-center justify-center hover:bg-cyan-400 transition">
-              <Camera className="w-4 h-4 text-black" />
-            </button>
-            <input ref={fileRef} type="file" accept="image/*" onChange={handleImage} className="hidden" />
           </div>
-          <div>
+          <div className="flex-1">
             <p className="text-lg font-bold text-white">{user?.name}</p>
             <p className="text-sm text-white/40">{user?.email}</p>
-            <div className="flex items-center gap-1 mt-1">
+            <div className="flex items-center gap-1 mt-1 mb-4">
               <Shield className="w-3.5 h-3.5 text-cyan-400" />
               <span className="text-xs text-cyan-400 font-mono">{user?.role}</span>
             </div>
+            <div className="flex flex-wrap gap-2">
+              <button onClick={() => fileRef.current?.click()} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/60 hover:text-white text-xs transition">
+                <Camera className="w-3.5 h-3.5" /> Galeri
+              </button>
+              <button onClick={() => cameraRef.current?.click()} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/60 hover:text-white text-xs transition">
+                <Camera className="w-3.5 h-3.5" /> Kamera Belakang
+              </button>
+              <button onClick={() => cameraFrontRef.current?.click()} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/60 hover:text-white text-xs transition">
+                <Camera className="w-3.5 h-3.5" /> Kamera Depan
+              </button>
+              {(getAvatar()) && (
+                <button onClick={deletePhoto} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs transition">
+                  <Trash2 className="w-3.5 h-3.5" /> Hapus Foto
+                </button>
+              )}
+            </div>
+            <input ref={fileRef} type="file" accept="image/*" onChange={handleImage} className="hidden" />
+            <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={handleImage} className="hidden" />
+            <input ref={cameraFrontRef} type="file" accept="image/*" capture="user" onChange={handleImage} className="hidden" />
           </div>
         </div>
       </div>
@@ -117,7 +140,8 @@ export default function ProfilePage() {
           <label className="block text-xs font-mono text-white/40 mb-2 uppercase">Nama Lengkap</label>
           <div className="relative">
             <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
-            <input value={name} onChange={e => setName(e.target.value)} className={`${inp} pl-10`} placeholder="Nama lengkap" />
+            <input value={name} onChange={e => setName(e.target.value)} className={`${inp} pl-10 pr-10`} placeholder="Nama lengkap" />
+            {name && <button onClick={() => setName("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/20 hover:text-white/50"><X className="w-4 h-4" /></button>}
           </div>
         </div>
         <div>
@@ -128,15 +152,17 @@ export default function ProfilePage() {
           <label className="block text-xs font-mono text-white/40 mb-2 uppercase">No. Telepon</label>
           <div className="relative">
             <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
-            <input value={phone} onChange={e => setPhone(e.target.value)} className={`${inp} pl-10`} placeholder="Nomor telepon" />
+            <input value={phone} onChange={e => setPhone(e.target.value)} className={`${inp} pl-10 pr-10`} placeholder="Nomor telepon (opsional)" />
+            {phone && <button onClick={() => setPhone("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/20 hover:text-white/50"><X className="w-4 h-4" /></button>}
           </div>
         </div>
         <div>
           <label className="block text-xs font-mono text-white/40 mb-2 uppercase">Alamat</label>
           <div className="relative">
             <MapPin className="absolute left-3 top-3 w-4 h-4 text-white/30" />
-            <textarea value={address} onChange={e => setAddress(e.target.value)} rows={3} className={`${inp} pl-10 resize-none`} placeholder="Alamat" />
+            <textarea value={address} onChange={e => setAddress(e.target.value)} rows={3} className={`${inp} pl-10 resize-none`} placeholder="Alamat (opsional)" />
           </div>
+          {address && <button onClick={() => setAddress("")} className="text-xs text-white/20 hover:text-white/50 mt-1">Hapus alamat</button>}
         </div>
       </div>
 
@@ -160,7 +186,6 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Save */}
       <button onClick={save} disabled={saving} className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 disabled:opacity-50 text-black font-bold transition">
         <Save className="w-4 h-4" />
         {saving ? "Menyimpan..." : "Simpan Profil"}
