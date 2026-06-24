@@ -1,24 +1,42 @@
-/* Theme base styles. */
-
-:root {
+﻿:root {
   color-scheme: light dark;
+
+  /* Light (default) */
+  --background: #f8fafc;
+  --foreground: #0f172a;
+
+  --header-bg: rgba(255, 255, 255, 0.9);
+  --border: rgba(15, 23, 42, 0.08);
+
+  --sidebar-bg: rgba(248, 250, 252, 0.9);
+
+  --card-bg: rgba(255, 255, 255, 0.85);
+  --card-border: rgba(15, 23, 42, 0.08);
+
+  --muted: rgba(15, 23, 42, 0.6);
+  --muted-subtle: rgba(15, 23, 42, 0.45);
+
+  --input-bg: rgba(255, 255, 255, 0.75);
+  --input-border: rgba(15, 23, 42, 0.12);
 }
 
-html body {
-  background: var(--background);
-  color: var(--foreground);
-}
-
-/* Default (light) variables */
-:root {
-  --background: #ffffff;
-  --foreground: #0f172a; /* slate-900 */
-}
-
-/* Dark variables */
 html.dark {
+  /* Dark */
   --background: #070d1a;
-  --foreground: #ffffff;
-}
+  --foreground: #f1f5f9;
 
+  --header-bg: rgba(7, 13, 26, 0.9);
+  --border: rgba(241, 245, 249, 0.10);
+
+  --sidebar-bg: rgba(7, 13, 26, 0.9);
+
+  --card-bg: rgba(10, 16, 32, 0.75);
+  --card-border: rgba(241, 245, 249, 0.10);
+
+  --muted: rgba(241, 245, 249, 0.6);
+  --muted-subtle: rgba(241, 245, 249, 0.45);
+
+  --input-bg: rgba(10, 16, 32, 0.55);
+  --input-border: rgba(241, 245, 249, 0.14);
+}
 

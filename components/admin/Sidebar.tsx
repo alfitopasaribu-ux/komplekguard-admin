@@ -1,10 +1,11 @@
-"use client";
+﻿"use client";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import { LayoutDashboard, AlertTriangle, Activity, LogOut, Shield, ChevronRight } from "lucide-react";
+import { LayoutDashboard, AlertTriangle, Activity, LogOut, Shield, ChevronRight, User } from "lucide-react";
 import { toast } from "sonner";
 
 const nav = [
+  { href: "/admin/profile", icon: User, label: "Profil" },
   { href: "/admin", icon: LayoutDashboard, label: "Dashboard", exact: true },
   { href: "/admin/alerts", icon: AlertTriangle, label: "Data Alert" },
   { href: "/admin/activity", icon: Activity, label: "Log Aktivitas" },
@@ -58,7 +59,6 @@ export default function AdminSidebar({ user }: { user: any }) {
           <div className="min-w-0">
             <p className="text-xs font-medium text-white truncate">{user?.name}</p>
             <p className="text-xs text-white/30 truncate font-mono">{user?.role}</p>
-
           </div>
         </div>
         <button onClick={logout} className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium text-red-400 hover:bg-red-500/10 transition-all">
