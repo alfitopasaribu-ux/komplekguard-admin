@@ -1,5 +1,6 @@
 ﻿"use client";
 import { useEffect, useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { User, Phone, MapPin, Lock, Save, Camera, Shield, X, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -17,6 +18,7 @@ export default function ProfilePage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [everSaved, setEverSaved] = useState(false);
   const [showPhotoMenu, setShowPhotoMenu] = useState(false);
+  const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const cameraFrontRef = useRef<HTMLInputElement>(null);
@@ -104,6 +106,7 @@ const getAvatar = () => {
       setCurrentPassword(""); setNewPassword(""); setConfirmPassword("");
       setEverSaved(true);
       toast.success("Profil berhasil disimpan!");
+      router.refresh();
     } catch (e: any) {
       toast.error(e.message);
     } finally {
