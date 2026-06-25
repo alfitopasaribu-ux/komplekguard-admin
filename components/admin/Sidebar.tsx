@@ -30,8 +30,8 @@ export default function AdminSidebar({ user }: { user: any }) {
             <Shield className="w-5 h-5 text-cyan-400" />
           </div>
           <div>
-            <p className="font-bold text-sm text-white leading-none">KomplekGuard AI</p>
-            <p className="text-xs text-white/30 mt-0.5 font-mono">Admin Panel</p>
+            <p className="font-bold text-sm text-white leading-none">{user?.name || "KomplekGuard AI"}</p>
+            <p className="text-xs text-white/30 mt-0.5 font-mono">{user?.role || "Admin Panel"}</p>
           </div>
         </div>
       </div>
