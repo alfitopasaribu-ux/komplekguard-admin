@@ -1,7 +1,7 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { getUserFromCookie } from "@/lib/auth";
+import { getUserFromCookie, signToken, AUTH_COOKIE_OPTIONS } from "@/lib/auth";
 import bcrypt from "bcryptjs";
 
 export async function GET(req: NextRequest) {
@@ -53,7 +53,10 @@ export async function PATCH(req: NextRequest) {
     });
 
     revalidatePath("/admin", "layout");
-    return NextResponse.json({ success: true, user });
+    const newToken = await signToken({ userId: session.userId, email: session.email, name: user.name, role: session.role });
+    const res = NextResponse.json({ success: true, user });
+    res.cookies.set("kg-admin-token", newToken, AUTH_COOKIE_OPTIONS);
+    return res;
   } catch (e: any) {
     console.error(e);
     return NextResponse.json({ error: e.message || "Gagal menyimpan" }, { status: 500 });
