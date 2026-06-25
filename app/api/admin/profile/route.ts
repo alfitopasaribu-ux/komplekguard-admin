@@ -1,4 +1,5 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getUserFromCookie } from "@/lib/auth";
 import bcrypt from "bcryptjs";
@@ -51,6 +52,7 @@ export async function PATCH(req: NextRequest) {
       data: { userId: session.userId, action: "UPDATE_PROFILE", description: "Admin mengupdate profil" },
     });
 
+    revalidatePath("/admin", "layout");
     return NextResponse.json({ success: true, user });
   } catch (e: any) {
     console.error(e);

@@ -26,8 +26,12 @@ export default function AdminSidebar({ user }: { user: any }) {
     <aside className="w-64 h-screen bg-[#0a1020] border-r border-white/5 flex flex-col flex-shrink-0">
       <div className="p-6 border-b border-white/5">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center">
-            <Shield className="w-5 h-5 text-cyan-400" />
+          <div className="w-9 h-9 rounded-xl bg-cyan-500/10 border border-cyan-500/20 overflow-hidden flex items-center justify-center">
+            {user?.image ? (
+              <img src={user.image} alt="avatar" className="w-full h-full object-cover rounded-xl" />
+            ) : (
+              <Shield className="w-5 h-5 text-cyan-400" />
+            )}
           </div>
           <div>
             <p className="font-bold text-sm text-white leading-none">{user?.name || "KomplekGuard AI"}</p>
