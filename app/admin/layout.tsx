@@ -16,7 +16,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (!dbUser?.isActive || !["ADMIN", "KETUA_RT"].includes(dbUser.role)) redirect("/login");
 
   return (
-    <div className="min-h-screen bg-[#f7f9f5] text-[#163c32] lg:flex">
+    <div className="min-h-screen bg-[#f7f9f5] text-[#163c32] transition-colors dark:bg-[#0b1913] dark:text-[#e6f4e9] lg:flex">
       <div className="hidden w-[260px] shrink-0 lg:block">
         <div className="sticky top-0 h-screen"><AdminSidebar user={dbUser} /></div>
       </div>
