@@ -14,11 +14,11 @@ type Profile = {
   address?: string | null; image?: string | null; role: string; isActive: boolean;
 };
 
-const field = "mt-2 h-12 w-full rounded-2xl border border-[#d5e6da] bg-[#f8fbf8] px-4 text-sm text-[#173e32] outline-none transition placeholder:text-[#a0b0a4] focus:border-[#0b9675] focus:ring-4 focus:ring-[#0b9675]/10 dark:border-[#345447] dark:bg-[#172c25] dark:text-[#eaf6ed] dark:placeholder:text-[#81998a]";
-const label = "block text-sm font-semibold text-[#3c6453] dark:text-[#bdd5c4]";
-const card = "rounded-[24px] border border-[#dceade] bg-white p-5 shadow-sm sm:p-7 dark:border-[#304c3d] dark:bg-[#14261f]";
-const secondary = "text-[#729080] dark:text-[#9eb8a8]";
-const photoButton = "inline-flex items-center gap-2 rounded-xl border border-[#d6e8dd] bg-white px-3 py-2.5 text-xs font-semibold text-[#17694f] transition hover:bg-[#eff7f0] disabled:opacity-50 dark:border-[#395648] dark:bg-[#1c362b] dark:text-[#d9f1e1] dark:hover:bg-[#264434]";
+const field = "mt-2 h-12 w-full rounded-2xl border border-[#d5e6da] bg-[#f8fbf8] px-4 text-sm text-[#173e32] outline-none transition placeholder:text-[#a0b0a4] focus:border-[#0b9675] focus:ring-4 focus:ring-[#0b9675]/10 dark:border-[#374452] dark:bg-[#1b2732] dark:text-[#eef2f7] dark:placeholder:text-[#81998a]";
+const label = "block text-sm font-semibold text-[#3c6453] dark:text-[#bac9d4]";
+const card = "rounded-[24px] border border-[#dceade] bg-white p-5 shadow-sm sm:p-7 dark:border-[#354252] dark:bg-[#141d27]";
+const secondary = "text-[#729080] dark:text-[#aebecd]";
+const photoButton = "inline-flex items-center gap-2 rounded-xl border border-[#d6e8dd] bg-white px-3 py-2.5 text-xs font-semibold text-[#17694f] transition hover:bg-[#eff7f0] disabled:opacity-50 dark:border-[#3b4a58] dark:bg-[#1f2d39] dark:text-[#e4edf3] dark:hover:bg-[#2a3b49]";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -157,17 +157,17 @@ export default function ProfilePage() {
     } finally { setSaving(false); }
   }
 
-  if (loading) return <div role="status" className="py-20 text-center text-sm text-[#678778] dark:text-[#acc4b4]">Memuat profil administrator...</div>;
+  if (loading) return <div role="status" className="py-20 text-center text-sm text-[#678778] dark:text-[#aebecd]">Memuat profil administrator...</div>;
   if (!user) return <div role="alert" className={card}><p className="text-sm text-[#a44e43]">{error || "Profil tidak ditemukan."}</p><button onClick={() => void load()} className="mt-3 text-sm font-semibold text-[#0b8b6c] underline">Coba lagi</button></div>;
 
-  return <div className="mx-auto max-w-[960px] space-y-6 pb-12 text-[#173d32] dark:text-[#e6f4e9]">
+  return <div className="mx-auto max-w-[960px] space-y-6 pb-12 text-[#173d32] dark:text-[#f0f4fa]">
     <div className="flex flex-wrap items-end justify-between gap-3">
       <div>
         <p className="mb-2 text-xs font-bold uppercase tracking-[.17em] text-[#0b9575] dark:text-[#76d7ad]">Pengaturan akun</p>
         <h1 className="text-3xl font-bold tracking-[-.045em] sm:text-4xl">Profil Administrator</h1>
         <p className={`mt-2 text-sm ${secondary}`}>Kelola identitas, foto, dan keamanan akun admin.</p>
       </div>
-      <span className="inline-flex items-center gap-2 rounded-full bg-[#e4f4e9] px-4 py-2 text-xs font-bold text-[#0b8668] dark:bg-[#234d3a] dark:text-[#9bedd0]">
+      <span className="inline-flex items-center gap-2 rounded-full bg-[#e4f4e9] px-4 py-2 text-xs font-bold text-[#0b8668] dark:bg-[#22493e] dark:text-[#9bedd0]">
         <ShieldCheck size={16}/> {user.role} · {user.isActive ? "Aktif" : "Nonaktif"}
       </span>
     </div>
@@ -179,7 +179,7 @@ export default function ProfilePage() {
         <div className="mb-6 flex items-center gap-2"><UserRound className="text-[#0b9472] dark:text-[#7de4af]" size={20}/><h2 className="text-lg font-bold">Identitas administrator</h2></div>
         <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
           <div className="shrink-0">
-            {avatar ? <img src={avatar} alt="Foto profil administrator" className="h-24 w-24 rounded-3xl border-4 border-[#e5f4e8] object-cover dark:border-[#325a46]"/>
+            {avatar ? <img src={avatar} alt="Foto profil administrator" className="h-24 w-24 rounded-3xl border-4 border-[#e5f4e8] object-cover dark:border-[#385263]"/>
               : <div className="grid h-24 w-24 place-items-center rounded-3xl bg-[#0b8e70] text-4xl font-bold text-white">{user.name?.charAt(0)?.toUpperCase() || "A"}</div>}
           </div>
           <div className="min-w-0 flex-1">
@@ -233,7 +233,7 @@ export default function ProfilePage() {
         </button>
       </section>
 
-      <div className="sticky bottom-3 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#dceade] bg-white/95 p-4 shadow-[0_12px_40px_rgba(15,74,45,.12)] backdrop-blur dark:border-[#345447] dark:bg-[#152b21]/95">
+      <div className="sticky bottom-3 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#dceade] bg-white/95 p-4 shadow-[0_12px_40px_rgba(15,74,45,.12)] backdrop-blur dark:border-[#374452] dark:bg-[#141e28]/95">
         <p className={`text-xs ${secondary}`}>{changed ? "Ada perubahan yang belum disimpan." : "Semua perubahan sudah tersimpan."}</p>
         <button type="submit" disabled={!changed || saving || processing} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#087d65] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#096c56] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto">
           <Save size={18}/> {saving ? "Menyimpan..." : "Simpan perubahan profil"}
