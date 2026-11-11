@@ -6,8 +6,8 @@ const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET || ""
 );
 
-if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
-  throw new Error("JWT_SECRET harus dikonfigurasi minimal 32 karakter.");
+if (!process.env.JWT_SECRET) {
+  throw new Error("JWT_SECRET wajib dikonfigurasi pada environment server.");
 }
 
 export interface JWTPayload {
