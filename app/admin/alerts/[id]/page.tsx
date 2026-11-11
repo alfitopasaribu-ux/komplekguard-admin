@@ -1,105 +1,115 @@
 "use client";
-import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, MapPin, Phone, User, Tag, Clock, Shield } from "lucide-react";
-import { toast } from "sonner";
 
-const STATUS_OPTIONS = ["AKTIF","DIPROSES","SELESAI","DIBATALKAN"];
-const STATUS_COLOR: Record<string,string> = { AKTIF:"bg-red-500/20 text-red-400", DIPROSES:"bg-amber-500/20 text-amber-400", SELESAI:"bg-emerald-500/20 text-emerald-400", DIBATALKAN:"bg-gray-500/20 text-gray-400" };
-const RISK_COLOR: Record<string,string> = { RENDAH:"bg-emerald-500/20 text-emerald-400", SEDANG:"bg-amber-500/20 text-amber-400", TINGGI:"bg-red-500/20 text-red-400", KRITIS:"bg-red-900/40 text-red-300" };
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { Activity, AlertTriangle, ArrowLeft, Camera, Clock3, MapPin, ShieldCheck, Sparkles, UserRound, Users } from "lucide-react";
+
+type AlertDetail = {
+  id: string; title: string; description: string; aiSummary?: string | null; riskLevel?: string | null;
+  status: string; createdAt: string; address?: string | null;
+  latitude: number; longitude: number; photoUrl?: string | null; image?: string | null;
+  aiSuggestedCategory?: string | null; customCategory?: string | null;
+  user?: { name?: string; phone?: string | null } | null;
+  category?: { name?: string } | null;
+  responses?: { id: string; responseStatus: string; note?: string | null; createdAt: string; user?: { name?: string; role?: string } | null }[];
+};
+const badges: Record<string, string> = {
+  AKTIF: "bg-[#ffebe8] text-[#b44439]", DIPROSES: "bg-[#fff3de] text-[#a87725]",
+  SELESAI: "bg-[#dff3e6] text-[#0b8160]", DIBATALKAN: "bg-[#eef1ed] text-[#789083]",
+  KRITIS: "bg-[#ffebe8] text-[#b44439]", TINGGI: "bg-[#ffebe8] text-[#b44439]",
+  SEDANG: "bg-[#fff3de] text-[#a87725]", RENDAH: "bg-[#dff3e6] text-[#0b8160]",
+};
 
 export default function AlertDetailPage() {
-  const { id } = useParams<{ id: string }>();
-  const router = useRouter();
-  const [alert, setAlert] = useState<any>(null);
+  const [alert, setAlert] = useState<AlertDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [status, setStatus] = useState("");
+  const [error, setError] = useState("");
+  const [id, setId] = useState("");
 
   useEffect(() => {
-    fetch(`/api/alerts/${id}`).then(r => r.json()).then(d => {
-      setAlert(d.alert);
-      setStatus(d.alert?.status || "");
-      setLoading(false);
-    });
-  }, [id]);
+    const targetId = window.location.pathname.split("/").filter(Boolean).at(-1) || "";
+    setId(targetId);
+    let cancelled = false;
+    async function load() {
+      try {
+        const response = await fetch(`/api/alerts/${encodeURIComponent(targetId)}`, { cache: "no-store" });
+        if (!response.ok) throw new Error("Detail laporan tidak ditemukan atau tidak dapat diakses.");
+        const data = await response.json();
+        if (!cancelled) setAlert(data.alert || null);
+      } catch (cause) {
+        if (!cancelled) setError(cause instanceof Error ? cause.message : "Gagal memuat laporan.");
+      } finally { if (!cancelled) setLoading(false); }
+    }
+    void load();
+    return () => { cancelled = true; };
+  }, []);
 
-  const save = async () => {
-    setSaving(true);
-    try {
-      const res = await fetch(`/api/alerts/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
-      if (!res.ok) throw new Error("Gagal update");
-      toast.success("Status alert berhasil diupdate");
-      setAlert((prev: any) => ({ ...prev, status }));
-    } catch { toast.error("Gagal menyimpan"); } finally { setSaving(false); }
-  };
+  const box = "rounded-[24px] border border-[#dfe9e1] bg-white p-5 shadow-sm sm:p-7";
+  const validLocation = alert && Number.isFinite(Number(alert.latitude)) && Number.isFinite(Number(alert.longitude)) && Math.abs(alert.latitude) <= 90 && Math.abs(alert.longitude) <= 180;
+  const picture = alert?.photoUrl || alert?.image;
+  if (loading) return <p className="py-20 text-center text-sm text-[#87a08f]">Memuat detail kejadian...</p>;
+  if (error || !alert) return <div role="alert" className="rounded-2xl border border-[#f4ded4] bg-white p-6 text-[#a45647]">{error || "Laporan tidak ditemukan."} <Link href="/admin/alerts" className="ml-3 underline">Kembali</Link></div>;
 
-  if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full" /></div>;
-  if (!alert) return <div className="text-center text-white/40 py-20">Alert tidak ditemukan</div>;
-
-  return (
-    <div className="max-w-3xl space-y-6">
-      <button onClick={() => router.back()} className="flex items-center gap-2 text-white/40 hover:text-white transition text-sm">
-        <ArrowLeft className="w-4 h-4" /> Kembali ke Data Alert
-      </button>
-
-      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 space-y-4">
-        <div className="flex items-start justify-between gap-4">
-          <h1 className="text-xl font-bold text-white">{alert.title}</h1>
-          <div className="flex gap-2 flex-shrink-0">
-            <span className={`px-3 py-1 rounded-lg text-xs font-bold ${STATUS_COLOR[alert.status]}`}>{alert.status}</span>
-            <span className={`px-3 py-1 rounded-lg text-xs font-bold ${RISK_COLOR[alert.riskLevel]}`}>{alert.riskLevel}</span>
-          </div>
+  return <div className="space-y-6 text-[#173c32]">
+    <Link href="/admin/alerts" className="inline-flex items-center gap-2 text-sm font-semibold text-[#0c896b] hover:underline"><ArrowLeft size={16}/> Kembali ke daftar laporan</Link>
+    <section className={box}>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="mb-2 text-xs font-bold uppercase tracking-[.17em] text-[#0b9674]">Detail laporan kejadian</p>
+          <h1 className="max-w-3xl text-2xl font-bold leading-tight tracking-[-.035em] sm:text-3xl">{alert.title}</h1>
+          <p className="mt-2 flex items-center gap-1.5 text-xs text-[#8ba092]"><Clock3 size={14}/> {new Date(alert.createdAt).toLocaleString("id-ID", { timeZone: "Asia/Makassar" })}</p>
         </div>
-
-        {alert.description && <p className="text-white/60 text-sm leading-relaxed">{alert.description}</p>}
-
-        <div className="grid grid-cols-2 gap-4 pt-2">
-          <div className="flex items-center gap-2 text-sm text-white/50"><User className="w-4 h-4 text-cyan-400" />{alert.user?.name || "-"}</div>
-          <div className="flex items-center gap-2 text-sm text-white/50"><Phone className="w-4 h-4 text-cyan-400" />{alert.user?.phone || "-"}</div>
-          <div className="flex items-center gap-2 text-sm text-white/50"><Tag className="w-4 h-4 text-cyan-400" />{alert.category?.name || alert.customCategory || "Lainnya"}</div>
-          <div className="flex items-center gap-2 text-sm text-white/50"><Clock className="w-4 h-4 text-cyan-400" />{new Date(alert.createdAt).toLocaleString("id-ID")}</div>
-          {alert.address && <div className="flex items-center gap-2 text-sm text-white/50 col-span-2"><MapPin className="w-4 h-4 text-cyan-400" />{alert.address}</div>}
+        <div className="flex flex-wrap gap-2">
+          <span className={`rounded-full px-3 py-2 text-xs font-bold ${badges[alert.status] || "bg-gray-100"}`}>{alert.status}</span>
+          <span className={`rounded-full px-3 py-2 text-xs font-bold ${badges[alert.riskLevel || ""] || "bg-gray-100"}`}>Risiko: {alert.riskLevel || "Belum dinilai"}</span>
         </div>
-
-        {alert.photoUrl && (
-          <div>
-            <p className="text-xs text-white/30 mb-2 font-mono uppercase">Foto</p>
-            <img src={alert.photoUrl} alt="foto alert" className="rounded-xl max-h-60 object-cover border border-white/10" />
-          </div>
-        )}
       </div>
-
-      {/* Update status */}
-      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
-        <h3 className="text-base font-bold text-white mb-4 flex items-center gap-2"><Shield className="w-4 h-4 text-cyan-400" /> Update Status</h3>
-        <div className="flex gap-3 flex-wrap">
-          {STATUS_OPTIONS.map(s => (
-            <button key={s} onClick={() => setStatus(s)} className={`px-4 py-2 rounded-xl text-sm font-bold border transition ${status === s ? "bg-cyan-500 text-black border-cyan-500" : "border-white/10 text-white/50 hover:bg-white/5"}`}>{s}</button>
-          ))}
-        </div>
-        <button onClick={save} disabled={saving || status === alert.status} className="mt-4 px-6 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 disabled:opacity-40 text-black font-bold text-sm transition">
-          {saving ? "Menyimpan..." : "Simpan Perubahan"}
-        </button>
+      <p className="mt-6 whitespace-pre-wrap text-sm leading-8 text-[#5e7e70]">{alert.description}</p>
+      <div className="mt-6 grid gap-3 border-t border-[#edf2ec] pt-5 sm:grid-cols-2">
+        <div className="flex items-start gap-2 text-sm text-[#527667]"><UserRound size={17} className="mt-0.5 text-[#0e8e6e]"/><span>Pelapor: <strong className="text-[#204c3e]">{alert.user?.name || "Tidak diketahui"}</strong></span></div>
+        <div className="flex items-start gap-2 text-sm text-[#527667]"><ShieldCheck size={17} className="mt-0.5 text-[#0e8e6e]"/><span>Kategori: <strong className="text-[#204c3e]">{alert.category?.name || alert.customCategory || "Lainnya"}</strong></span></div>
+        <div className="flex items-start gap-2 text-sm text-[#527667] sm:col-span-2"><MapPin size={17} className="mt-0.5 shrink-0 text-[#0e8e6e]"/>{alert.address || "Lokasi berdasarkan titik koordinat."}</div>
       </div>
+    </section>
 
-      {/* Responses */}
-      {alert.responses?.length > 0 && (
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
-          <h3 className="text-base font-bold text-white mb-4">Respon ({alert.responses.length})</h3>
-          <div className="space-y-3">
-            {alert.responses.map((r: any) => (
-              <div key={r.id} className="rounded-xl border border-white/5 p-3">
-                <div className="flex items-center justify-between mb-1">
-                  <p className="text-sm font-medium text-white">{r.user?.name} <span className="text-white/30 text-xs">({r.user?.role})</span></p>
-                  <span className="text-xs text-white/30 font-mono">{new Date(r.createdAt).toLocaleString("id-ID")}</span>
-                </div>
-                <p className="text-sm text-white/50">{r.note || r.responseStatus}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+    <div className="grid gap-6 xl:grid-cols-2">
+      <section className={box}>
+        <h2 className="mb-4 flex items-center gap-2 text-lg font-bold"><Sparkles className="text-[#0d9270]" size={20}/> Ringkasan AI</h2>
+        {alert.aiSummary ? <p className="rounded-2xl bg-[#eef7ef] p-5 text-sm leading-7 text-[#416e5d]">{alert.aiSummary}</p>
+          : <p className="rounded-2xl bg-[#f6f9f4] p-5 text-sm text-[#8a9d8e]">Analisis AI belum tersedia untuk laporan ini.</p>}
+        {alert.aiSuggestedCategory && <p className="mt-4 text-xs text-[#6e8879]">Saran kategori: <strong>{alert.aiSuggestedCategory}</strong></p>}
+        <p className="mt-4 text-xs leading-5 text-[#94a697]">Hasil AI adalah informasi pendukung dan tidak menggantikan penilaian petugas di lapangan.</p>
+      </section>
+      <section className={box}>
+        <h2 className="mb-4 flex items-center gap-2 text-lg font-bold"><Camera className="text-[#0d9270]" size={20}/> Foto kejadian</h2>
+        {picture ? <img src={picture} alt={`Foto kejadian ${alert.title}`} className="max-h-[320px] w-full rounded-2xl border border-[#e2ece4] object-contain"/>
+          : <div className="flex h-[195px] flex-col items-center justify-center rounded-2xl bg-[#f2f8f2] text-[#90a695]"><Camera size={30}/><span className="mt-2 text-sm">Foto tidak tersedia.</span></div>}
+      </section>
+      <section className={box}>
+        <h2 className="mb-4 flex items-center gap-2 text-lg font-bold"><MapPin className="text-[#0d9270]" size={20}/> Titik lokasi kejadian</h2>
+        {validLocation ? <>
+          <iframe loading="lazy" title="Peta lokasi kejadian" referrerPolicy="no-referrer" className="h-[270px] w-full rounded-2xl border border-[#e2ece4]"
+            src={`https://www.openstreetmap.org/export/embed.html?bbox=${alert.longitude-0.012}%2C${alert.latitude-0.008}%2C${alert.longitude+0.012}%2C${alert.latitude+0.008}&layer=mapnik&marker=${alert.latitude}%2C${alert.longitude}`}/>
+          <a className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-[#0b9471]" href={`https://www.openstreetmap.org/?mlat=${alert.latitude}&mlon=${alert.longitude}#map=16/${alert.latitude}/${alert.longitude}`} target="_blank" rel="noopener noreferrer">Lihat pada OpenStreetMap <MapPin size={15}/></a>
+        </> : <p className="text-sm text-[#8ca392]">Koordinat belum tersedia.</p>}
+      </section>
+      <section className={box}>
+        <h2 className="mb-4 flex items-center gap-2 text-lg font-bold"><Users className="text-[#0d9270]" size={20}/> Respons warga ({alert.responses?.length || 0})</h2>
+        {alert.responses?.length ? <div className="space-y-3">{alert.responses.map(r => <div key={r.id} className="rounded-2xl border border-[#e0ece2] bg-[#f9fcf8] p-4">
+          <p className="text-sm font-bold">{r.user?.name || "Warga"} <span className="ml-2 text-xs font-normal text-[#849a8d]">{r.user?.role || ""}</span></p>
+          <p className="mt-2 text-sm text-[#5e7e6c]">{r.note || r.responseStatus}</p>
+          <p className="mt-2 text-xs text-[#9aa99a]">{new Date(r.createdAt).toLocaleString("id-ID", { timeZone: "Asia/Makassar" })}</p>
+        </div>)}</div>
+          : <div className="flex h-[195px] flex-col items-center justify-center rounded-2xl bg-[#f2f8f2] text-[#91a697]"><Users size={30}/><p className="mt-2 text-sm">Belum ada respons warga.</p></div>}
+      </section>
     </div>
-  );
+
+    <div className="flex items-start gap-3 rounded-2xl border border-[#dceadf] bg-[#eef8ef] p-5 text-sm leading-6 text-[#507765]">
+      <Activity size={20} className="mt-0.5 shrink-0 text-[#0b9572]"/>
+      <div><p className="font-bold text-[#164b3b]">Pemantauan administrator</p>
+        <p>Halaman ini menampilkan informasi laporan. Perubahan status kejadian tetap mengikuti kewenangan pemilik laporan pada aplikasi warga.</p>
+        <p className="mt-1 text-xs">ID: {id}</p>
+      </div>
+    </div>
+  </div>;
 }
