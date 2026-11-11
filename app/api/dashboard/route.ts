@@ -52,7 +52,12 @@ export async function GET(req: NextRequest) {
         include: { user: { select: { name: true } } },
       }),
 
-      prisma.alert.findMany({\n        take: 8, orderBy: { createdAt: "desc" },\n        select: { id: true, title: true, status: true, riskLevel: true, latitude: true, longitude: true, address: true, createdAt: true, category: { select: { name: true } } },\n      }),\n\n      Promise.all(weekDays.map(async d => ({
+      prisma.alert.findMany({
+        take: 8, orderBy: { createdAt: "desc" },
+        select: { id: true, title: true, status: true, riskLevel: true, latitude: true, longitude: true, address: true, createdAt: true, category: { select: { name: true } } },
+      }),
+
+      Promise.all(weekDays.map(async d => ({
         label: format(d, "EEE", { locale: localeId }),
         count: await prisma.alert.count({ where: { createdAt: { gte: startOfDay(d), lte: endOfDay(d) } } }),
       }))),
@@ -81,7 +86,8 @@ export async function GET(req: NextRequest) {
         type: catMap[c.categoryId!]?.type || "-",
         count: c._count.categoryId,
       })),
-      recentAlerts,\n      recentLogs: recentLogs.map(l => ({ id: l.id, action: l.action, description: l.description, createdAt: l.createdAt, userName: l.user?.name })),
+      recentAlerts,
+      recentLogs: recentLogs.map(l => ({ id: l.id, action: l.action, description: l.description, createdAt: l.createdAt, userName: l.user?.name })),
       charts: { week: weekChart, month: monthChart, year: yearChart },
     });
   } catch (e) {
