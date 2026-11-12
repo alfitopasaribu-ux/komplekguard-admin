@@ -11,7 +11,7 @@ async function authorized(req: NextRequest) {
   if (!session) return null;
   return prisma.user.findUnique({
     where: { id: session.userId },
-    select: { id: true, role: true, isActive: true },
+    select: { id: true, role: true, isActive: true, neighborhoodId: true },
   }).then(u => u?.isActive && ["ADMIN", "KETUA_RT"].includes(u.role) ? u : null);
 }
 
@@ -28,8 +28,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: "Catatan pemeriksaan wajib 15–1000 karakter." }, { status: 400 });
     }
 
-    const alert = await prisma.alert.findUnique({ where: { id }, select: { id: true, userId: true, title: true } });
+    const alert = await prisma.alert.findUnique({ where: { id }, select: { id: true, userId: true, title: true, neighborhoodId: true } });
     if (!alert) return NextResponse.json({ error: "Laporan tidak ditemukan." }, { status: 404 });
+    if (staff.role === "KETUA_RT" &&
+      (!staff.neighborhoodId || staff.neighborhoodId !== alert.neighborhoodId)) {
+      return NextResponse.json({ error: "Hanya laporan lingkungan sendiri yang dapat diverifikasi." }, { status: 403 });
+    }
 
     const action = PREFIX + id;
     const data = await prisma.$transaction(async tx => {
