@@ -6,6 +6,13 @@ export async function GET(req: NextRequest) {
   try {
     const user = await getUserFromCookie(req);
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const staff = await prisma.user.findUnique({
+      where: { id: user.userId },
+      select: { role: true, neighborhoodId: true, isActive: true },
+    });
+    if (!staff?.isActive || !["ADMIN", "KETUA_RT"].includes(staff.role)) {
+      return NextResponse.json({ error: "Akses ditolak." }, { status: 403 });
+    }
 
     const { searchParams } = new URL(req.url);
     const search = searchParams.get("search") || "";
@@ -16,6 +23,10 @@ export async function GET(req: NextRequest) {
     const skip = (page - 1) * limit;
 
     const where: any = {};
+    if (staff.role === "KETUA_RT") {
+      if (!staff.neighborhoodId) return NextResponse.json({ alerts: [], total: 0, page, totalPages: 0 });
+      where.neighborhoodId = staff.neighborhoodId;
+    }
     if (search) where.OR = [{ title: { contains: search, mode: "insensitive" } }, { user: { name: { contains: search, mode: "insensitive" } } }];
     if (status) where.status = status;
     if (riskLevel) where.riskLevel = riskLevel;
