@@ -15,7 +15,33 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     },
   });
   if (!alert) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json({ alert });
+  const audit = await prisma.activityLog.findFirst({
+    where: { action: "GUARDIAN_VERIFY:" + id },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    select: { description: true, createdAt: true },
+  });
+  let verificationStatus = "BELUM_DIVERIFIKASI";
+  let verificationNote: string | null = null;
+  if (audit) {
+    try {
+      const parsed = JSON.parse(audit.description || "{}");
+      if (["TERVERIFIKASI", "PERLU_PEMERIKSAAN", "DITOLAK"].includes(parsed.status)) {
+        verificationStatus = parsed.status;
+        verificationNote = typeof parsed.note === "string" ? parsed.note : null;
+      }
+    } catch { /* Invalid log does not become a verification. */ }
+  }
+  const text = [alert.title, alert.description, alert.customCategory].filter(Boolean).join(" ").toLowerCase();
+  const indicators = [
+    ...(alert.description.trim().length < 30 ? ["Deskripsi singkat, dapat memerlukan klarifikasi."] : []),
+    ...(!alert.photoUrl && !alert.image ? ["Tanpa foto pendukung (bukan bukti laporan palsu)."] : []),
+    ...(/tolong|ancam|mencurigakan|kekerasan|pencurian|rumah kosong/i.test(text)
+      ? ["Laporan sensitif: koordinasikan respons aman, jangan kirim warga sendirian."] : []),
+  ];
+  return NextResponse.json({ alert: {
+    ...alert, verificationStatus, verificationNote,
+    verifiedAt: audit?.createdAt || null, reviewIndicators: indicators,
+  } });
 }
 
 // Administrator dashboard is read-only for incidents created by residents.
