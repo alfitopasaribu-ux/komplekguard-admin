@@ -32,7 +32,26 @@ export async function GET(req: NextRequest) {
       prisma.alert.count({ where }),
     ]);
 
-    return NextResponse.json({ alerts, total, page, totalPages: Math.ceil(total / limit) });
+    const logs = alerts.length ? await prisma.activityLog.findMany({
+      where: { action: { in: alerts.map(a => "GUARDIAN_VERIFY:" + a.id) } },
+      select: { action: true, description: true },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    }) : [];
+    const checks = new Map<string, string>();
+    for (const log of logs) {
+      const id = log.action.slice("GUARDIAN_VERIFY:".length);
+      if (checks.has(id)) continue;
+      try {
+        const result = JSON.parse(log.description || "{}");
+        if (["TERVERIFIKASI", "PERLU_PEMERIKSAAN", "DITOLAK"].includes(result.status)) {
+          checks.set(id, result.status);
+        }
+      } catch { /* Ignore malformed historical log. */ }
+    }
+    return NextResponse.json({
+      alerts: alerts.map(a => ({ ...a, verificationStatus: checks.get(a.id) || "BELUM_DIVERIFIKASI" })),
+      total, page, totalPages: Math.ceil(total / limit),
+    });
   } catch (e) {
     console.error(e);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
