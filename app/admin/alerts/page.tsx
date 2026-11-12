@@ -5,7 +5,7 @@ import Link from "next/link";
 import { AlertTriangle, ArrowRight, Clock3, Filter, MapPin, RefreshCw, Search, ShieldCheck } from "lucide-react";
 
 type Alert = {
-  id: string; title: string; createdAt: string; status: string; riskLevel: string | null;
+  id: string; title: string; createdAt: string; status: string; riskLevel: string | null; verificationStatus?: string;
   address?: string | null; customCategory?: string | null; user?: { name?: string } | null;
   category?: { name?: string } | null;
 };
@@ -88,7 +88,7 @@ export default function AlertsPage() {
       <div className="overflow-x-auto">
         <table className="w-full min-w-[900px] text-left">
           <thead className="bg-[#f3f8f3] dark:bg-[#202b37] text-[11px] font-bold uppercase tracking-[.08em] text-[#779184] dark:text-[#b6c3cf]">
-            <tr>{["Laporan", "Pelapor", "Kategori", "Status", "Risiko AI", "Waktu", "Tindakan"].map(s => <th key={s} className="px-5 py-4">{s}</th>)}</tr>
+            <tr>{["Laporan", "Pelapor", "Kategori", "Status", "Verifikasi", "Risiko AI", "Waktu", "Tindakan"].map(s => <th key={s} className="px-5 py-4">{s}</th>)}</tr>
           </thead>
           <tbody className="divide-y divide-[#edf3ed]">
             {alerts.map(a => <tr key={a.id} className="transition hover:bg-[#f8fcf8] dark:hover:bg-[#29483a]">
@@ -96,6 +96,11 @@ export default function AlertsPage() {
               <td className="px-5 py-4 text-sm text-[#597366] dark:text-[#b6c3cf]">{a.user?.name || "-"}</td>
               <td className="px-5 py-4 text-sm text-[#597366] dark:text-[#b6c3cf]">{a.category?.name || a.customCategory || "Lainnya"}</td>
               <td className="px-5 py-4"><span className={`rounded-full px-3 py-1.5 text-[11px] font-bold ${statusColors[a.status] || "bg-gray-100 text-gray-600"}`}>{a.status}</span></td>
+              <td className="px-5 py-4">
+                <span className={`inline-block rounded-full px-3 py-1.5 text-[11px] font-bold ${a.verificationStatus === "TERVERIFIKASI" ? "bg-emerald-100 text-emerald-800 dark:bg-[#223b36] dark:text-[#59dca9]" : "bg-amber-100 text-amber-800 dark:bg-[#3b3228] dark:text-[#ffc2b4]"}`}>
+                  {(a.verificationStatus || "BELUM_DIVERIFIKASI").replaceAll("_", " ")}
+                </span>
+              </td>
               <td className="px-5 py-4"><span className={`rounded-full px-3 py-1.5 text-[11px] font-bold ${riskColors[a.riskLevel || ""] || "bg-gray-100 text-gray-600"}`}>{a.riskLevel || "Belum dinilai"}</span></td>
               <td className="px-5 py-4 text-xs text-[#80998a] dark:text-[#b6c3cf]">{new Date(a.createdAt).toLocaleString("id-ID", { timeZone: "Asia/Makassar" })}</td>
               <td className="px-5 py-4"><Link href={`/admin/alerts/${a.id}`} className="inline-flex items-center gap-1 rounded-xl bg-[#e7f5eb] dark:bg-[#202b37] px-3 py-2 text-xs font-bold text-[#0b8568] dark:text-[#59dca9] hover:bg-[#d8eee1] dark:hover:bg-[#29483a]">Detail <ArrowRight size={13}/></Link></td>
