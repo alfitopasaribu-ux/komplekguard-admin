@@ -5,6 +5,13 @@ import { getUserFromCookie } from "@/lib/auth";
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await getUserFromCookie(req);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const staff = await prisma.user.findUnique({
+    where: { id: user.userId },
+    select: { role: true, isActive: true, neighborhoodId: true },
+  });
+  if (!staff?.isActive || !["ADMIN", "KETUA_RT"].includes(staff.role)) {
+    return NextResponse.json({ error: "Akses ditolak." }, { status: 403 });
+  }
   const { id } = await params;
   const alert = await prisma.alert.findUnique({
     where: { id },
@@ -15,6 +22,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     },
   });
   if (!alert) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (staff.role === "KETUA_RT" &&
+    (!staff.neighborhoodId || alert.neighborhoodId !== staff.neighborhoodId)) {
+    return NextResponse.json({ error: "Tidak dapat melihat laporan lingkungan lain." }, { status: 403 });
+  }
   const audit = await prisma.activityLog.findFirst({
     where: { action: "GUARDIAN_VERIFY:" + id },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
