@@ -7,6 +7,8 @@ import { Activity, AlertTriangle, ArrowLeft, Camera, Clock3, MapPin, ShieldCheck
 type AlertDetail = {
   id: string; title: string; description: string; aiSummary?: string | null; riskLevel?: string | null;
   status: string; createdAt: string; address?: string | null;
+  verificationStatus?: string; verificationNote?: string | null; verifiedAt?: string | null;
+  reviewIndicators?: string[];
   latitude: number; longitude: number; photoUrl?: string | null; image?: string | null;
   aiSuggestedCategory?: string | null; customCategory?: string | null;
   user?: { name?: string; phone?: string | null } | null;
@@ -25,6 +27,40 @@ export default function AlertDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [id, setId] = useState("");
+  const [verificationStatus, setVerificationStatus] = useState("PERLU_PEMERIKSAAN");
+  const [verificationNote, setVerificationNote] = useState("");
+  const [savingVerification, setSavingVerification] = useState(false);
+  const [verificationError, setVerificationError] = useState("");
+  const [verificationSuccess, setVerificationSuccess] = useState("");
+
+  async function saveVerification() {
+    if (!alert || savingVerification) return;
+    setVerificationError(""); setVerificationSuccess("");
+    if (verificationNote.trim().length < 15) {
+      setVerificationError("Berikan catatan pemeriksaan sekurangnya 15 karakter.");
+      return;
+    }
+    setSavingVerification(true);
+    try {
+      const response = await fetch(`/api/alerts/${encodeURIComponent(alert.id)}/verification`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: verificationStatus, note: verificationNote.trim() }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Verifikasi gagal disimpan.");
+      setAlert(previous => previous ? {
+        ...previous, verificationStatus: data.verification.status,
+        verificationNote: data.verification.note, verifiedAt: data.verification.verifiedAt,
+      } : previous);
+      setVerificationNote("");
+      setVerificationSuccess("Hasil pemeriksaan tersimpan dan tercatat dalam log audit.");
+    } catch (error) {
+      setVerificationError(error instanceof Error ? error.message : "Koneksi gagal.");
+    } finally {
+      setSavingVerification(false);
+    }
+  }
 
   useEffect(() => {
     const targetId = window.location.pathname.split("/").filter(Boolean).at(-1) || "";
@@ -69,6 +105,35 @@ export default function AlertDetailPage() {
         <div className="flex items-start gap-2 text-sm text-[#527667] dark:text-[#b6c3cf]"><UserRound size={17} className="mt-0.5 text-[#0e8e6e] dark:text-[#59dca9]"/><span>Pelapor: <strong className="text-[#204c3e] dark:text-[#eef2f7]">{alert.user?.name || "Tidak diketahui"}</strong></span></div>
         <div className="flex items-start gap-2 text-sm text-[#527667] dark:text-[#b6c3cf]"><ShieldCheck size={17} className="mt-0.5 text-[#0e8e6e] dark:text-[#59dca9]"/><span>Kategori: <strong className="text-[#204c3e] dark:text-[#eef2f7]">{alert.category?.name || alert.customCategory || "Lainnya"}</strong></span></div>
         <div className="flex items-start gap-2 text-sm text-[#527667] dark:text-[#b6c3cf] sm:col-span-2"><MapPin size={17} className="mt-0.5 shrink-0 text-[#0e8e6e] dark:text-[#59dca9]"/>{alert.address || "Lokasi berdasarkan titik koordinat."}</div>
+      </div>
+    </section>
+
+    <section className={box}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="flex items-center gap-2 text-lg font-bold"><ShieldCheck className="text-[#0d9270] dark:text-[#59dca9]" size={20}/> Guardian Verify</h2>
+          <p className="mt-1 text-xs leading-6 text-[#708a7b] dark:text-[#b6c3cf]">Pemeriksaan fakta oleh petugas — bukan vonis AI atas niat pelapor.</p>
+        </div>
+        <span className="rounded-full bg-[#fff2de] dark:bg-[#202b37] px-3 py-2 text-xs font-bold text-[#9a691f] dark:text-[#ffc2b4]">{(alert.verificationStatus || "BELUM_DIVERIFIKASI").replaceAll("_", " ")}</span>
+      </div>
+      <div className="mt-4 rounded-xl border border-[#dce8dd] dark:border-[#374453] bg-[#f4f9f4] dark:bg-[#202b37] p-4">
+        <p className="mb-2 text-xs font-bold">Pemeriksaan awal otomatis • 0 token Groq</p>
+        {alert.reviewIndicators?.length ? <ul className="list-disc space-y-1 pl-5 text-sm leading-6 text-[#577766] dark:text-[#b6c3cf]">{alert.reviewIndicators.map((s, i) => <li key={i}>{s}</li>)}</ul> : <p className="text-sm text-[#577766] dark:text-[#b6c3cf]">Tidak ada indikator awal khusus. Keaslian laporan belum dapat dipastikan.</p>}
+      </div>
+      {alert.verificationNote && <p className="mt-3 rounded-xl bg-[#f5f8f5] dark:bg-[#202b37] p-3 text-sm text-[#547263] dark:text-[#b6c3cf]">Catatan petugas terakhir: {alert.verificationNote}</p>}
+      <div className="mt-5 grid gap-3">
+        <label htmlFor="verification-decision" className="text-sm font-bold">Hasil pemeriksaan</label>
+        <select id="verification-decision" value={verificationStatus} onChange={e => setVerificationStatus(e.target.value)} className="h-11 rounded-xl border border-[#dce8dd] bg-white px-3 text-sm text-[#173c32] dark:border-[#374453] dark:bg-[#202b37] dark:text-[#eef2f7]">
+          <option value="PERLU_PEMERIKSAAN">Perlu pemeriksaan lanjutan</option>
+          <option value="TERVERIFIKASI">Terverifikasi petugas</option>
+          <option value="DITOLAK">Ditolak setelah pemeriksaan</option>
+        </select>
+        <label htmlFor="verification-note" className="text-sm font-bold">Catatan pemeriksaan wajib</label>
+        <textarea id="verification-note" rows={3} maxLength={1000} value={verificationNote} onChange={e => setVerificationNote(e.target.value)} placeholder="Jelaskan cara pemeriksaan dan temuan yang mendukung keputusan..." className="w-full rounded-xl border border-[#dce8dd] bg-white p-3 text-sm text-[#173c32] outline-none focus:border-[#087d65] dark:border-[#374453] dark:bg-[#202b37] dark:text-[#eef2f7]"/>
+        <button onClick={() => void saveVerification()} disabled={savingVerification || verificationNote.trim().length < 15} className="rounded-xl bg-[#087d65] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#066853] disabled:opacity-50">{savingVerification ? "Menyimpan..." : "Simpan Hasil Verifikasi"}</button>
+        {verificationError && <p role="alert" className="text-sm text-red-600 dark:text-red-300">{verificationError}</p>}
+        {verificationSuccess && <p role="status" className="text-sm text-[#087d65] dark:text-[#59dca9]">{verificationSuccess}</p>}
+        <p className="text-xs leading-5 text-[#8aa092] dark:text-[#b6c3cf]">Verifikasi tidak menghentikan jalur bantuan darurat dan tidak mengubah status penanganan laporan. Lokasi tepat hanya untuk petugas berwenang.</p>
       </div>
     </section>
 
