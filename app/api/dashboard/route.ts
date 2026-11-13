@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
 
     const [
       totalAlerts, todayAlerts, monthAlerts, activeAlerts,
-      byStatus, byCategory, recentLogs, weekChart, monthChart, yearChart
+      byStatus, byCategory, recentLogs, recentAlerts, weekChart, monthChart, yearChart
     ] = await Promise.all([
       prisma.alert.count(),
       prisma.alert.count({ where: { createdAt: { gte: todayStart, lte: todayEnd } } }),
@@ -50,6 +50,11 @@ export async function GET(req: NextRequest) {
       prisma.activityLog.findMany({
         take: 10, orderBy: { createdAt: "desc" },
         include: { user: { select: { name: true } } },
+      }),
+
+      prisma.alert.findMany({
+        take: 8, orderBy: { createdAt: "desc" },
+        select: { id: true, title: true, status: true, riskLevel: true, latitude: true, longitude: true, address: true, createdAt: true, category: { select: { name: true } } },
       }),
 
       Promise.all(weekDays.map(async d => ({
@@ -81,6 +86,7 @@ export async function GET(req: NextRequest) {
         type: catMap[c.categoryId!]?.type || "-",
         count: c._count.categoryId,
       })),
+      recentAlerts,
       recentLogs: recentLogs.map(l => ({ id: l.id, action: l.action, description: l.description, createdAt: l.createdAt, userName: l.user?.name })),
       charts: { week: weekChart, month: monthChart, year: yearChart },
     });

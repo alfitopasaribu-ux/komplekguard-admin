@@ -3,8 +3,12 @@ import { cookies } from "next/headers";
 import { NextRequest } from "next/server";
 
 const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || "komplekguard-admin-secret-minimum-32-chars"
+  process.env.JWT_SECRET || ""
 );
+
+if (!process.env.JWT_SECRET) {
+  throw new Error("JWT_SECRET wajib dikonfigurasi pada environment server.");
+}
 
 export interface JWTPayload {
   userId: string;

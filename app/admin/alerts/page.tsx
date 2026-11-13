@@ -1,23 +1,27 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
-import { AlertTriangle, Search, Eye, RefreshCw } from "lucide-react";
-import Link from "next/link";
 
-const STATUS_COLOR: Record<string, string> = {
-  AKTIF: "bg-red-500/20 text-red-400 border-red-500/30",
-  DIPROSES: "bg-amber-500/20 text-amber-400 border-amber-500/30",
-  SELESAI: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
-  DIBATALKAN: "bg-gray-500/20 text-gray-400 border-gray-500/30",
+import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { AlertTriangle, ArrowRight, Clock3, Filter, MapPin, RefreshCw, Search, ShieldCheck } from "lucide-react";
+
+type Alert = {
+  id: string; title: string; createdAt: string; status: string; riskLevel: string | null; verificationStatus?: string;
+  address?: string | null; customCategory?: string | null; user?: { name?: string } | null;
+  category?: { name?: string } | null;
 };
-const RISK_COLOR: Record<string, string> = {
-  RENDAH: "bg-emerald-500/20 text-emerald-400",
-  SEDANG: "bg-amber-500/20 text-amber-400",
-  TINGGI: "bg-red-500/20 text-red-400",
-  KRITIS: "bg-red-900/40 text-red-300",
+const statuses = ["", "AKTIF", "DIPROSES", "SELESAI", "DIBATALKAN"];
+const risks = ["", "KRITIS", "TINGGI", "SEDANG", "RENDAH"];
+const riskColors: Record<string, string> = {
+  KRITIS: "bg-[#fff0eb] dark:bg-[#202b37] text-[#ba4439] dark:text-[#ffc2b4]", TINGGI: "bg-[#fff0eb] dark:bg-[#202b37] text-[#ba4439] dark:text-[#ffc2b4]",
+  SEDANG: "bg-[#fff4dd] dark:bg-[#202b37] text-[#a1711d] dark:text-[#ffc2b4]", RENDAH: "bg-[#e3f4e8] dark:bg-[#202b37] text-[#0c8a69] dark:text-[#59dca9]",
+};
+const statusColors: Record<string, string> = {
+  AKTIF: "bg-[#ffedea] dark:bg-[#202b37] text-[#b44736] dark:text-[#ffc2b4]", DIPROSES: "bg-[#fff2dd] dark:bg-[#202b37] text-[#a3751b] dark:text-[#ffc2b4]",
+  SELESAI: "bg-[#e1f4e8] dark:bg-[#202b37] text-[#128267] dark:text-[#59dca9]", DIBATALKAN: "bg-[#edf1ee] dark:bg-[#202b37] text-[#789184] dark:text-[#b6c3cf]",
 };
 
 export default function AlertsPage() {
-  const [alerts, setAlerts] = useState<any[]>([]);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [page, setPage] = useState(1);
@@ -25,110 +29,94 @@ export default function AlertsPage() {
   const [status, setStatus] = useState("");
   const [risk, setRisk] = useState("");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const fetch_ = useCallback(async () => {
-    setLoading(true);
-    const p = new URLSearchParams({ page: String(page), search, ...(status && { status }), ...(risk && { riskLevel: risk }) });
-    const res = await fetch(`/api/alerts?${p}`);
-    const data = await res.json();
-    setAlerts(data.alerts || []);
-    setTotal(data.total || 0);
-    setTotalPages(data.totalPages || 1);
-    setLoading(false);
+  const load = useCallback(async () => {
+    setLoading(true); setError("");
+    try {
+      const params = new URLSearchParams({ page: String(page), search, ...(status && { status }), ...(risk && { riskLevel: risk }) });
+      const response = await fetch(`/api/alerts?${params}`, { cache: "no-store" });
+      if (!response.ok) throw new Error("Laporan belum bisa dimuat. Coba lagi.");
+      const result = await response.json();
+      setAlerts(result.alerts || []);
+      setTotal(result.total || 0);
+      setTotalPages(result.totalPages || 1);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Gangguan jaringan");
+    } finally { setLoading(false); }
   }, [page, search, status, risk]);
+  useEffect(() => { void load(); }, [load]);
 
-  useEffect(() => { fetch_(); }, [fetch_]);
-
-  const sel = "rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-cyan-500/50";
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2"><AlertTriangle className="w-6 h-6 text-cyan-400" /> Data Alert</h1>
-          <p className="text-white/40 text-sm mt-1">Total {total.toLocaleString("id-ID")} alert</p>
-        </div>
-        <button onClick={fetch_} className="flex items-center gap-2 px-4 py-2 rounded-xl border border-white/10 text-sm text-white/60 hover:bg-white/5 transition">
-          <RefreshCw className="w-4 h-4" /> Refresh
-        </button>
+  const select = "h-11 rounded-xl border border-[#dce8dd] dark:border-[#374453] bg-white dark:bg-[#18222d] px-4 text-sm font-semibold text-[#416f5c] dark:text-[#59dca9] outline-none focus:border-[#0c9675]";
+  return <div className="space-y-6 text-[#173c32] dark:text-[#eef2f7]">
+    <div className="flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <p className="mb-2 text-xs font-bold uppercase tracking-[.18em] text-[#0b9875] dark:text-[#59dca9]">Monitoring warga</p>
+        <h1 className="text-3xl font-bold tracking-[-.045em] sm:text-4xl">Data laporan kejadian</h1>
+        <p className="mt-2 text-sm text-[#7a9587] dark:text-[#b6c3cf]">Temukan laporan, tinjau hasil analisis AI, lokasi, dan respons warga.</p>
       </div>
+      <button onClick={() => void load()} disabled={loading} className="inline-flex h-11 items-center gap-2 rounded-xl border border-[#dce8dd] dark:border-[#374453] bg-white dark:bg-[#18222d] px-4 text-sm font-semibold text-[#16836a] dark:text-[#59dca9] disabled:opacity-50"><RefreshCw size={16} className={loading ? "animate-spin" : ""}/> Segarkan</button>
+    </div>
 
-      {/* Filters */}
+    <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+      <div className="rounded-2xl border border-[#dce8df] dark:border-[#374453] bg-white dark:bg-[#18222d] p-5"><ShieldCheck size={21} className="text-[#0b886a] dark:text-[#59dca9]"/><p className="mt-3 text-3xl font-bold">{total.toLocaleString("id-ID")}</p><p className="mt-1 text-xs text-[#8aa092] dark:text-[#b6c3cf]">Total sesuai filter</p></div>
+      <div className="rounded-2xl border border-[#dce8df] dark:border-[#374453] bg-white dark:bg-[#18222d] p-5"><AlertTriangle size={21} className="text-[#c58b30] dark:text-[#ffc2b4]"/><p className="mt-3 text-3xl font-bold">{alerts.filter(a => a.status === "AKTIF").length}</p><p className="mt-1 text-xs text-[#8aa092] dark:text-[#b6c3cf]">Aktif pada halaman ini</p></div>
+      <div className="col-span-2 rounded-2xl border border-[#dce8df] dark:border-[#374453] bg-white dark:bg-[#18222d] p-5 md:col-span-1"><Clock3 size={21} className="text-[#5992a1] dark:text-[#aebecd]"/><p className="mt-3 text-3xl font-bold">{alerts.length}</p><p className="mt-1 text-xs text-[#8aa092] dark:text-[#b6c3cf]">Ditampilkan saat ini</p></div>
+    </div>
+
+    <div className="rounded-[24px] border border-[#dce8df] dark:border-[#374453] bg-white dark:bg-[#18222d] p-4 shadow-sm sm:p-6">
+      <div className="mb-4 flex items-center gap-2 text-sm font-bold"><Filter size={17} className="text-[#0b886a] dark:text-[#59dca9]"/> Cari & saring laporan</div>
       <div className="flex flex-wrap gap-3">
-        <div className="relative flex-1 min-w-48">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
-          <input value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} placeholder="Cari judul atau pelapor..." className="w-full rounded-xl border border-white/10 bg-white/5 pl-10 pr-4 py-2 text-sm text-white placeholder:text-white/20 outline-none focus:border-cyan-500/50" />
+        <div className="relative min-w-[220px] flex-1">
+          <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#91a99a] dark:text-[#b6c3cf]"/>
+          <input aria-label="Cari judul atau pelapor" value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} placeholder="Cari judul laporan atau nama pelapor..."
+            className="h-11 w-full rounded-xl border border-[#dce8dd] dark:border-[#374453] bg-[#f9fbf8] dark:bg-[#202b37] pl-11 pr-4 text-sm text-[#174032] dark:text-[#eef2f7] outline-none focus:border-[#0c9675]"/>
         </div>
-        <select value={status} onChange={e => { setStatus(e.target.value); setPage(1); }} className={sel}>
-          <option value="">Semua Status</option>
-          <option value="AKTIF">Aktif</option>
-          <option value="DIPROSES">Diproses</option>
-          <option value="SELESAI">Selesai</option>
-          <option value="DIBATALKAN">Dibatalkan</option>
+        <select aria-label="Filter status" value={status} onChange={e => { setStatus(e.target.value); setPage(1); }} className={select}>
+          {statuses.map(s => <option key={s} value={s}>{s || "Semua status"}</option>)}
         </select>
-        <select value={risk} onChange={e => { setRisk(e.target.value); setPage(1); }} className={sel}>
-          <option value="">Semua Risiko</option>
-          <option value="RENDAH">Rendah</option>
-          <option value="SEDANG">Sedang</option>
-          <option value="TINGGI">Tinggi</option>
-          <option value="KRITIS">Kritis</option>
+        <select aria-label="Filter risiko" value={risk} onChange={e => { setRisk(e.target.value); setPage(1); }} className={select}>
+          {risks.map(s => <option key={s} value={s}>{s || "Semua risiko"}</option>)}
         </select>
       </div>
+    </div>
 
-      {/* Table */}
-      <div className="rounded-2xl border border-white/10 bg-white/[0.03] overflow-hidden">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-white/10">
-              {["#","Tanggal","Judul Alert","Kategori","Status","Level Risiko","Pelapor","Detail"].map(h => (
-                <th key={h} className="px-4 py-3 text-left text-xs font-mono text-white/40 uppercase">{h}</th>
-              ))}
-            </tr>
+    {error && <p role="alert" className="rounded-xl bg-[#fff0ea] dark:bg-[#202b37] p-4 text-sm text-[#ae4e3b] dark:text-[#ffc2b4]">{error}</p>}
+
+    <div className="overflow-hidden rounded-[24px] border border-[#dce8df] dark:border-[#374453] bg-white dark:bg-[#18222d] shadow-sm">
+      <div className="flex items-center justify-between border-b border-[#edf2ed] dark:border-[#374453] px-5 py-4 sm:px-6"><p className="text-sm font-bold">Daftar laporan</p><p className="text-xs text-[#90a797] dark:text-[#b6c3cf]">{total.toLocaleString("id-ID")} laporan</p></div>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[900px] text-left">
+          <thead className="bg-[#f3f8f3] dark:bg-[#202b37] text-[11px] font-bold uppercase tracking-[.08em] text-[#779184] dark:text-[#b6c3cf]">
+            <tr>{["Laporan", "Pelapor", "Kategori", "Status", "Verifikasi", "Risiko AI", "Waktu", "Tindakan"].map(s => <th key={s} className="px-5 py-4">{s}</th>)}</tr>
           </thead>
-          <tbody>
-            {loading ? Array(8).fill(0).map((_,i) => (
-              <tr key={i} className="border-b border-white/5">
-                {Array(8).fill(0).map((_,j) => <td key={j} className="px-4 py-3"><div className="h-4 animate-pulse rounded bg-white/5" /></td>)}
-              </tr>
-            )) : alerts.map((a, i) => (
-              <tr key={a.id} className="border-b border-white/5 hover:bg-white/[0.02] transition">
-                <td className="px-4 py-3 text-white/40 text-sm font-mono">{(page-1)*10+i+1}</td>
-                <td className="px-4 py-3 text-white/60 text-xs font-mono">{new Date(a.createdAt).toLocaleString("id-ID")}</td>
-                <td className="px-4 py-3 text-white text-sm font-medium max-w-48 truncate">{a.title}</td>
-                <td className="px-4 py-3 text-white/50 text-xs">{a.category?.name || a.customCategory || "Lainnya"}</td>
-                <td className="px-4 py-3">
-                  <span className={`px-2 py-1 rounded-lg text-xs font-bold border ${STATUS_COLOR[a.status] || ""}`}>{a.status}</span>
-                </td>
-                <td className="px-4 py-3">
-                  <span className={`px-2 py-1 rounded-lg text-xs font-bold ${RISK_COLOR[a.riskLevel] || ""}`}>{a.riskLevel}</span>
-                </td>
-                <td className="px-4 py-3 text-white/60 text-sm">{a.user?.name || "-"}</td>
-                <td className="px-4 py-3">
-                  <Link href={`/admin/alerts/${a.id}`} className="flex items-center gap-1 text-cyan-400 hover:text-cyan-300 text-xs font-medium">
-                    <Eye className="w-3.5 h-3.5" /> Detail
-                  </Link>
-                </td>
-              </tr>
-            ))}
+          <tbody className="divide-y divide-[#edf3ed]">
+            {alerts.map(a => <tr key={a.id} className="transition hover:bg-[#f8fcf8] dark:hover:bg-[#29483a]">
+              <td className="max-w-[250px] px-5 py-4"><p className="truncate text-sm font-bold">{a.title}</p><p className="mt-1 flex items-center gap-1 truncate text-xs text-[#91a797] dark:text-[#b6c3cf]"><MapPin size={12}/> {a.address || "Lokasi koordinat tersedia"}</p></td>
+              <td className="px-5 py-4 text-sm text-[#597366] dark:text-[#b6c3cf]">{a.user?.name || "-"}</td>
+              <td className="px-5 py-4 text-sm text-[#597366] dark:text-[#b6c3cf]">{a.category?.name || a.customCategory || "Lainnya"}</td>
+              <td className="px-5 py-4"><span className={`rounded-full px-3 py-1.5 text-[11px] font-bold ${statusColors[a.status] || "bg-gray-100 text-gray-600"}`}>{a.status}</span></td>
+              <td className="px-5 py-4">
+                <span className={`inline-block rounded-full px-3 py-1.5 text-[11px] font-bold ${a.verificationStatus === "TERVERIFIKASI" ? "bg-emerald-100 text-emerald-800 dark:bg-[#223b36] dark:text-[#59dca9]" : "bg-amber-100 text-amber-800 dark:bg-[#3b3228] dark:text-[#ffc2b4]"}`}>
+                  {(a.verificationStatus || "BELUM_DIVERIFIKASI").replaceAll("_", " ")}
+                </span>
+              </td>
+              <td className="px-5 py-4"><span className={`rounded-full px-3 py-1.5 text-[11px] font-bold ${riskColors[a.riskLevel || ""] || "bg-gray-100 text-gray-600"}`}>{a.riskLevel || "Belum dinilai"}</span></td>
+              <td className="px-5 py-4 text-xs text-[#80998a] dark:text-[#b6c3cf]">{new Date(a.createdAt).toLocaleString("id-ID", { timeZone: "Asia/Makassar" })}</td>
+              <td className="px-5 py-4"><Link href={`/admin/alerts/${a.id}`} className="inline-flex items-center gap-1 rounded-xl bg-[#e7f5eb] dark:bg-[#202b37] px-3 py-2 text-xs font-bold text-[#0b8568] dark:text-[#59dca9] hover:bg-[#d8eee1] dark:hover:bg-[#29483a]">Detail <ArrowRight size={13}/></Link></td>
+            </tr>)}
           </tbody>
         </table>
-
-        {!loading && alerts.length === 0 && (
-          <div className="text-center py-12 text-white/30">Tidak ada alert ditemukan</div>
-        )}
       </div>
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-white/40">Menampilkan {(page-1)*10+1}–{Math.min(page*10,total)} dari {total} alert</p>
-          <div className="flex gap-2">
-            {Array.from({ length: Math.min(totalPages,5) }, (_, i) => i + 1).map(p => (
-              <button key={p} onClick={() => setPage(p)} className={`w-8 h-8 rounded-lg text-sm font-medium transition ${page === p ? "bg-cyan-500 text-black" : "bg-white/5 text-white/60 hover:bg-white/10"}`}>{p}</button>
-            ))}
-          </div>
+      {loading && <p role="status" className="p-10 text-center text-sm text-[#849b8c] dark:text-[#b6c3cf]">Memuat laporan...</p>}
+      {!loading && !error && !alerts.length && <div className="flex flex-col items-center py-16 text-[#87a08f] dark:text-[#b6c3cf]"><Search size={30}/><p className="mt-3 text-sm">Tidak ada laporan sesuai pencarian.</p></div>}
+      {totalPages > 1 && <div className="flex items-center justify-between gap-3 border-t border-[#edf2ed] dark:border-[#374453] px-5 py-4">
+        <p className="text-xs text-[#859d8f] dark:text-[#b6c3cf]">Halaman {page} dari {totalPages}</p>
+        <div className="flex gap-2">
+          <button disabled={page <= 1} onClick={() => setPage(n => n-1)} className="rounded-lg border border-[#dce8dd] dark:border-[#374453] px-4 py-2 text-xs font-semibold disabled:opacity-40">Sebelumnya</button>
+          <button disabled={page >= totalPages} onClick={() => setPage(n => n+1)} className="rounded-lg bg-[#087d65] px-4 py-2 text-xs font-semibold text-white disabled:opacity-40">Berikutnya</button>
         </div>
-      )}
+      </div>}
     </div>
-  );
+  </div>;
 }

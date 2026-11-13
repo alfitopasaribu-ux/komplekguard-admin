@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
     if (!email || !password) return NextResponse.json({ message: "Email dan password wajib diisi" }, { status: 400 });
 
     const user = await prisma.user.findUnique({ where: { email } });
-    if (!user || (user.role !== "ADMIN" && user.role !== "KETUA_RT")) {
+    if (!user || !user.isActive || (user.role !== "ADMIN" && user.role !== "KETUA_RT")) {
       await new Promise(r => setTimeout(r, 1000));
       return NextResponse.json({ message: "Email atau password salah" }, { status: 401 });
     }

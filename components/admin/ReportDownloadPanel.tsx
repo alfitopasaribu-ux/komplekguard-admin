@@ -21,16 +21,16 @@ export default function ReportDownloadPanel() {
     window.location.href = `/api/reports/alerts-xlsx?${p}`;
   };
 
-  const sel = "w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-cyan-500/50 transition";
+  const sel = "w-full rounded-xl border border-[#dce8dd] dark:border-[#374453] bg-[#f8fbf7] dark:bg-[#202b37] px-4 py-3 text-sm text-[#285743] dark:text-[#59dca9] outline-none focus:border-[#0b9475] transition";
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
-      <h2 className="text-lg font-bold text-white mb-1">Laporan Alert Keamanan</h2>
-      <p className="text-sm text-white/40 mb-5">Download laporan harian, mingguan, bulanan, dan tahunan dalam format Excel.</p>
+    <div className="rounded-[24px] border border-[#dfe9e1] dark:border-[#374453] bg-white dark:bg-[#18222d] p-6 shadow-sm">
+      <h2 className="text-lg font-bold text-[#173c32] dark:text-[#eef2f7] mb-1">Laporan Alert Keamanan</h2>
+      <p className="text-sm text-[#879d8d] dark:text-[#b6c3cf] mb-5">Download laporan harian, mingguan, bulanan, dan tahunan dalam format Excel.</p>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
         <div>
-          <label className="block text-xs font-mono text-white/50 mb-2 uppercase">Jenis Laporan</label>
+          <label className="block text-xs font-semibold text-[#7e9887] dark:text-[#b6c3cf] mb-2 uppercase">Jenis Laporan</label>
           <select value={mode} onChange={e => setMode(e.target.value as Mode)} className={sel}>
             <option value="day">Harian</option>
             <option value="week">Mingguan</option>
@@ -40,13 +40,13 @@ export default function ReportDownloadPanel() {
         </div>
         {mode === "day" && (
           <div>
-            <label className="block text-xs font-mono text-white/50 mb-2 uppercase">Tanggal</label>
+            <label className="block text-xs font-semibold text-[#7e9887] dark:text-[#b6c3cf] mb-2 uppercase">Tanggal</label>
             <input type="date" value={date} onChange={e => setDate(e.target.value)} className={sel} />
           </div>
         )}
         {mode === "week" && (
           <div>
-            <label className="block text-xs font-mono text-white/50 mb-2 uppercase">Minggu Ke</label>
+            <label className="block text-xs font-semibold text-[#7e9887] dark:text-[#b6c3cf] mb-2 uppercase">Minggu Ke</label>
             <select value={week} onChange={e => setWeek(Number(e.target.value))} className={sel}>
               {[1,2,3,4,5].map(w => <option key={w} value={w}>Minggu {w}</option>)}
             </select>
@@ -54,20 +54,20 @@ export default function ReportDownloadPanel() {
         )}
         {(mode === "week" || mode === "month") && (
           <div>
-            <label className="block text-xs font-mono text-white/50 mb-2 uppercase">Bulan</label>
+            <label className="block text-xs font-semibold text-[#7e9887] dark:text-[#b6c3cf] mb-2 uppercase">Bulan</label>
             <select value={month} onChange={e => setMonth(Number(e.target.value))} className={sel}>
               {months.map((m, i) => <option key={i} value={i+1}>{m}</option>)}
             </select>
           </div>
         )}
         <div>
-          <label className="block text-xs font-mono text-white/50 mb-2 uppercase">Tahun</label>
+          <label className="block text-xs font-semibold text-[#7e9887] dark:text-[#b6c3cf] mb-2 uppercase">Tahun</label>
           <select value={year} onChange={e => setYear(Number(e.target.value))} className={sel}>
             {years.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
         </div>
         <div className="flex items-end">
-          <button onClick={download} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 px-4 py-3 text-sm font-bold text-black transition">
+          <button onClick={download} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#087d65] hover:bg-[#096b56] px-4 py-3 text-sm font-bold text-white transition">
             <Download className="w-4 h-4" />
             Download Excel
           </button>

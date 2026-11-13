@@ -1,160 +1,184 @@
 "use client";
-import { useEffect, useState } from "react";
-import { AlertTriangle, CalendarDays, TrendingUp, Zap, ArrowUpRight, Activity } from "lucide-react";
-import { AreaChart, Area, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-import { format } from "date-fns";
-import { id as localeId } from "date-fns/locale";
-import ReportDownloadPanel from "./ReportDownloadPanel";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useTheme } from "next-themes";
+import { Activity, AlertTriangle, ArrowRight, CalendarDays, CheckCircle2, Clock3, MapPin, RefreshCw, ShieldCheck, TrendingUp, Zap } from "lucide-react";
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import ReportDownloadPanel from "./ReportDownloadPanel";
 
-type Mode = "minggu" | "bulan" | "tahun";
+type Mode = "week" | "month" | "year";
+type Incident = {
+  id: string; title: string; riskLevel: string | null; status: string;
+  createdAt: string; latitude: number; longitude: number; address?: string | null;
+  category?: { name?: string } | null;
+};
+type DashboardData = {
+  stats: { totalAlerts: number; todayAlerts: number; monthAlerts: number; activeAlerts: number };
+  byStatus: { status: string; count: number }[];
+  byCategory: { categoryId: string | null; name: string; count: number }[];
+  recentLogs: { id: string; description?: string | null; action: string; userName?: string; createdAt: string }[];
+  recentAlerts: Incident[];
+  charts: Record<Mode, { label: string; count: number }[]>;
+};
 
-function Tooltip2({ active, payload, label }: any) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="rounded-xl border border-white/10 bg-[#0a1020] px-4 py-3 shadow-xl">
-      <p className="text-sm font-semibold text-white">{label}</p>
-      <p className="mt-1 text-sm text-white/60">{payload[0].value} alert</p>
-    </div>
-  );
+const riskStyle: Record<string, string> = {
+  KRITIS: "bg-[#fff0ed] dark:bg-[#202b37] text-[#bd3a2b] dark:text-[#ffc2b4]",
+  TINGGI: "bg-[#fff0ed] dark:bg-[#202b37] text-[#bd3a2b] dark:text-[#ffc2b4]",
+  SEDANG: "bg-[#fff5df] dark:bg-[#202b37] text-[#9f6c18] dark:text-[#ffc2b4]",
+  RENDAH: "bg-[#e4f5ea] dark:bg-[#202b37] text-[#087d65] dark:text-[#59dca9]",
+};
+const fmt = (date: string) => new Date(date).toLocaleString("id-ID", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Makassar" });
+
+function safeCoordinate(value: number, min: number, max: number) {
+  const n = Number(value);
+  return Number.isFinite(n) && n >= min && n <= max;
 }
 
-export default function DashboardStats({ user }: { user: any }) {
-  const [data, setData] = useState<any>(null);
+export default function DashboardStats({ user }: { user: { name?: string } | null }) {
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
+  const axisColor = isDark ? "#acbac8" : "#9bb3a4";
+  const gridColor = isDark ? "#394553" : "#e7efea";
+  const tooltipStyle = { backgroundColor: isDark ? "#1a2530" : "#ffffff", border: `1px solid ${isDark ? "#405064" : "#dfe9e1"}`, borderRadius: 12, color: isDark ? "#eef2f7" : "#173b30" };
+  const cursorStyle = { fill: isDark ? "rgba(148,163,184,0.07)" : "rgba(16,185,129,0.06)" };
+  const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [mode, setMode] = useState<Mode>("minggu");
+  const [error, setError] = useState("");
+  const [mode, setMode] = useState<Mode>("week");
+  const [selected, setSelected] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetch("/api/dashboard").then(r => r.json()).then(d => { setData(d); setLoading(false); }).catch(() => setLoading(false));
+  const refresh = useCallback(async () => {
+    setLoading(true); setError("");
+    try {
+      const response = await fetch("/api/dashboard", { cache: "no-store" });
+      if (!response.ok) throw new Error("Data monitoring tidak dapat dimuat.");
+      setData(await response.json());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Terjadi gangguan jaringan.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
+  useEffect(() => { void refresh(); }, [refresh]);
 
-  const chartData = mode === "minggu" ? data?.charts?.week : mode === "bulan" ? data?.charts?.month : data?.charts?.year;
-  const total = chartData?.reduce((s: number, i: any) => s + i.count, 0) ?? 0;
-  const max = chartData?.reduce((h: any, i: any) => i.count > h.count ? i : h, { label: "", count: 0 });
-  const avg = chartData?.length ? (total / chartData.length).toFixed(1) : "0";
-
-  const stats = [
-    { label: "Total Alert", value: data?.stats?.totalAlerts ?? 0, icon: AlertTriangle, color: "text-cyan-400", bg: "bg-cyan-400/10", sub: "Semua waktu" },
-    { label: "Alert Hari Ini", value: data?.stats?.todayAlerts ?? 0, icon: CalendarDays, color: "text-emerald-400", bg: "bg-emerald-400/10", sub: format(new Date(), "dd MMM yyyy", { locale: localeId }) },
-    { label: "Bulan Ini", value: data?.stats?.monthAlerts ?? 0, icon: TrendingUp, color: "text-violet-400", bg: "bg-violet-400/10", sub: `Rata-rata ${data?.stats?.avgPerWeek ?? 0}/minggu` },
-    { label: "Sedang Aktif", value: data?.stats?.activeAlerts ?? 0, icon: Zap, color: "text-amber-400", bg: "bg-amber-400/10", sub: "Live sekarang" },
+  const incidents = useMemo(() => data?.recentAlerts || [], [data]);
+  const priority = incidents.filter((a) => a.status !== "SELESAI" && a.status !== "DIBATALKAN" && ["TINGGI", "KRITIS"].includes(a.riskLevel || ""));
+  const mapped = incidents.filter((a) => safeCoordinate(a.latitude, -90, 90) && safeCoordinate(a.longitude, -180, 180));
+  const picked = mapped.find((a) => a.id === selected) || mapped[0];
+  const statCards = [
+    { label: "Total laporan", value: data?.stats.totalAlerts ?? 0, caption: "Tercatat dalam sistem", icon: ShieldCheck, tone: "bg-[#e5f3e9] dark:bg-[#202b37] text-[#117c60] dark:text-[#59dca9]" },
+    { label: "Perlu penanganan", value: data?.stats.activeAlerts ?? 0, caption: "Aktif atau sedang diproses", icon: Zap, tone: "bg-[#fff0df] dark:bg-[#202b37] text-[#ab741d] dark:text-[#ffc2b4]" },
+    { label: "Laporan hari ini", value: data?.stats.todayAlerts ?? 0, caption: "Aktivitas terbaru", icon: CalendarDays, tone: "bg-[#e8f2fb] dark:bg-[#202b37] text-[#4a7a99] dark:text-[#aebecd]" },
+    { label: "Laporan bulan ini", value: data?.stats.monthAlerts ?? 0, caption: "Dalam bulan berjalan", icon: TrendingUp, tone: "bg-[#eeebfa] dark:bg-[#202b37] text-[#7e68b5] dark:text-[#aebecd]" },
   ];
+  const chart = data?.charts?.[mode] || [];
+  const sectionClass = "rounded-[24px] border border-[#dfe9e1] dark:border-[#374453] bg-white dark:bg-[#18222d] p-5 shadow-[0_10px_35px_rgba(23,74,52,.035)] sm:p-7";
+  const priorities = [...priority].sort((a, b) => (a.riskLevel === "KRITIS" ? -1 : 0) - (b.riskLevel === "KRITIS" ? -1 : 0));
 
-  return (
-    <div className="space-y-6">
+  return <div className="space-y-6 text-[#173b30] dark:text-[#eef2f7]">
+    <div className="flex flex-wrap items-end justify-between gap-4">
       <div>
-        <h1 className="text-3xl font-bold text-white">Selamat Datang, {user?.name?.split(" ")[0] || "Admin"}</h1>
-        <p className="mt-2 text-white/40">Ringkasan data alert keamanan kompleks perumahan</p>
+        <p className="mb-2 text-xs font-bold uppercase tracking-[.18em] text-[#0c9a79] dark:text-[#59dca9]">Pusat keamanan lingkungan</p>
+        <h1 className="text-3xl font-semibold tracking-[-.045em] sm:text-4xl">Selamat datang, {user?.name?.split(" ")[0] || "Admin"} <span aria-hidden="true">👋</span></h1>
+        <p className="mt-2 text-sm leading-6 text-[#769084] dark:text-[#b6c3cf]">Pantau laporan warga, respons, dan situasi terkini dari satu tempat.</p>
       </div>
-
-      <ReportDownloadPanel />
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {stats.map((s, i) => (
-          <div key={s.label} className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
-            <div className="flex items-start justify-between">
-              <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${s.bg}`}>
-                <s.icon className={`h-6 w-6 ${s.color}`} />
-              </div>
-              <ArrowUpRight className="h-4 w-4 text-emerald-400" />
-            </div>
-            <div className="mt-6">
-              {loading ? <div className="h-8 w-20 animate-pulse rounded bg-white/10" /> : <p className="text-3xl font-bold text-white">{s.value.toLocaleString("id-ID")}</p>}
-              <p className="mt-2 text-sm font-medium text-white/60">{s.label}</p>
-              <p className="mt-1 text-xs text-white/30">{s.sub}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Chart */}
-      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between mb-6">
-          <div>
-            <h2 className="flex items-center gap-2 text-lg font-bold text-white">
-              <Activity className="h-5 w-5 text-cyan-400" /> Grafik Alert Keamanan
-            </h2>
-            {!loading && (
-              <p className="mt-2 text-sm text-white/40">
-                Total: <span className="text-white font-semibold">{total} alert</span> •
-                Rata-rata: <span className="text-white font-semibold">{avg} alert/periode</span>
-                {max?.count > 0 && <> • Tertinggi: <span className="text-cyan-400 font-semibold">{max.label} ({max.count})</span></>}
-              </p>
-            )}
-          </div>
-          <div className="inline-flex overflow-hidden rounded-xl border border-white/10">
-            {[["minggu","Per Minggu"],["bulan","Per Bulan"],["tahun","Per Tahun"]].map(([k,l]) => (
-              <button key={k} onClick={() => setMode(k as Mode)} className={`px-4 py-2 text-sm font-medium transition-all whitespace-nowrap ${mode === k ? "bg-cyan-500 text-black font-bold" : "text-white/40 hover:bg-white/5"}`}>{l}</button>
-            ))}
-          </div>
-        </div>
-        <div className="h-72">
-          {loading ? <div className="h-full animate-pulse rounded-2xl bg-white/5" /> : (
-            <ResponsiveContainer width="100%" height="100%">
-              {mode === "minggu" ? (
-                <AreaChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                  <XAxis dataKey="label" tick={{ fontSize: 12, fill: "rgba(255,255,255,0.4)" }} axisLine={false} tickLine={false} />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: "rgba(255,255,255,0.4)" }} axisLine={false} tickLine={false} />
-                  <Tooltip content={<Tooltip2 />} />
-                  <Area type="monotone" dataKey="count" stroke="#00BCD4" fill="rgba(0,188,212,0.15)" strokeWidth={2} dot={{ r: 4, fill: "#00BCD4" }} activeDot={{ r: 6 }} />
-                </AreaChart>
-              ) : (
-                <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                  <XAxis dataKey="label" tick={{ fontSize: 12, fill: "rgba(255,255,255,0.4)" }} axisLine={false} tickLine={false} />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: "rgba(255,255,255,0.4)" }} axisLine={false} tickLine={false} />
-                  <Tooltip content={<Tooltip2 />} />
-                  <Bar dataKey="count" fill="#00BCD4" radius={[6,6,0,0]} />
-                </BarChart>
-              )}
-            </ResponsiveContainer>
-          )}
-        </div>
-      </div>
-
-      {/* Bottom 2 col */}
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        {/* Recent activity */}
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
-          <div className="flex items-center justify-between mb-5">
-            <h3 className="text-lg font-bold text-white">Aktivitas Terkini</h3>
-            <Link href="/admin/activity" className="text-sm text-cyan-400 hover:text-cyan-300">Lihat semua →</Link>
-          </div>
-          <div className="space-y-3">
-            {loading ? Array(5).fill(0).map((_,i) => <div key={i} className="h-12 animate-pulse rounded-xl bg-white/5" />) :
-              (data?.recentLogs ?? []).slice(0,6).map((log: any) => (
-                <div key={log.id} className="rounded-xl border border-white/5 p-3">
-                  <p className="text-sm text-white font-medium">{log.description || log.action}</p>
-                  <p className="text-xs text-white/30 mt-1">{log.userName} • {log.createdAt ? new Date(log.createdAt).toLocaleString("id-ID") : "-"}</p>
-                </div>
-              ))}
-          </div>
-        </div>
-
-        {/* Category breakdown */}
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
-          <h3 className="text-lg font-bold text-white mb-5">Kategori Terbanyak</h3>
-          <div className="space-y-4">
-            {loading ? Array(5).fill(0).map((_,i) => <div key={i} className="h-10 animate-pulse rounded-xl bg-white/5" />) :
-              (data?.byCategory ?? []).slice(0,6).map((cat: any, i: number) => {
-                const maxVal = data?.byCategory?.[0]?.count || 1;
-                const pct = Math.round((cat.count / maxVal) * 100);
-                return (
-                  <div key={cat.categoryId || i}>
-                    <div className="flex items-center justify-between mb-1">
-                      <p className="text-sm text-white/70">{i+1}. {cat.name} <span className="text-white/30 text-xs">({cat.type})</span></p>
-                      <p className="text-sm font-semibold text-white">{cat.count} alert</p>
-                    </div>
-                    <div className="h-1.5 rounded-full bg-white/10">
-                      <div className="h-full rounded-full bg-cyan-500" style={{ width: `${pct}%` }} />
-                    </div>
-                  </div>
-                );
-              })}
-          </div>
-        </div>
-      </div>
+      <button onClick={() => void refresh()} disabled={loading} className="inline-flex items-center gap-2 rounded-xl border border-[#d6e7db] dark:border-[#374453] bg-white dark:bg-[#18222d] px-4 py-3 text-sm font-semibold text-[#176c54] dark:text-[#59dca9] transition hover:bg-[#e9f6ed] dark:hover:bg-[#29483a] disabled:opacity-50">
+        <RefreshCw size={16} className={loading ? "animate-spin" : ""}/> Perbarui data
+      </button>
     </div>
-  );
+
+    {error && <div role="alert" className="rounded-2xl border border-[#f4cec7] dark:border-[#374453] bg-[#fff3ef] dark:bg-[#202b37] p-4 text-sm text-[#aa493d] dark:text-[#ffc2b4]">{error} <button onClick={() => void refresh()} className="ml-2 underline">Coba lagi</button></div>}
+
+    <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+      {statCards.map((s) => <div key={s.label} className="rounded-[22px] border border-[#dfe9e1] dark:border-[#374453] bg-white dark:bg-[#18222d] p-4 shadow-sm sm:p-6">
+        <div className={`mb-5 grid h-11 w-11 place-items-center rounded-2xl ${s.tone}`}><s.icon size={22}/></div>
+        <p className="text-xs font-semibold text-[#81988a] dark:text-[#b6c3cf] sm:text-sm">{s.label}</p>
+        <p className="mt-1 text-3xl font-bold tracking-[-.05em] sm:text-4xl">{loading && !data ? "–" : s.value.toLocaleString("id-ID")}</p>
+        <p className="mt-2 text-[11px] text-[#93a79a] dark:text-[#b6c3cf] sm:text-xs">{s.caption}</p>
+      </div>)}
+    </div>
+
+    <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
+      <section className={sectionClass}>
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <div><h2 className="text-lg font-bold">Tren laporan</h2><p className="mt-1 text-xs text-[#89a094] dark:text-[#b6c3cf]">Distribusi jumlah laporan berdasarkan periode</p></div>
+          <div className="flex rounded-xl bg-[#edf5ee] dark:bg-[#202b37] p-1 text-xs font-bold">
+            {([["week","Minggu"],["month","Bulan"],["year","Tahun"]] as const).map(([key,label]) =>
+              <button key={key} onClick={() => setMode(key)} className={`rounded-lg px-3 py-2 transition ${mode === key ? "bg-[#087d65] text-white" : "text-[#72917f] dark:text-[#b6c3cf] hover:bg-white dark:hover:bg-[#284738]"}`}>{label}</button>)}
+          </div>
+        </div>
+        <div className="h-[270px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            {mode === "week" ?
+              <AreaChart data={chart}>
+                <CartesianGrid stroke={gridColor} strokeDasharray="4 5" vertical={false}/>
+                <XAxis dataKey="label" stroke={axisColor} tickLine={false} axisLine={false} fontSize={11}/>
+                <YAxis allowDecimals={false} stroke={axisColor} tickLine={false} axisLine={false} fontSize={11}/>
+                <Tooltip contentStyle={tooltipStyle} cursor={cursorStyle}/><Area dataKey="count" type="monotone" stroke="#0b9674" strokeWidth={3} fill={isDark ? "rgba(8,125,101,.16)" : "#ccefe0"} dot={{ fill:"#0b9674", r:3 }}/>
+              </AreaChart>
+              : <BarChart data={chart}><CartesianGrid stroke={gridColor} strokeDasharray="4 5" vertical={false}/>
+                <XAxis dataKey="label" stroke={axisColor} tickLine={false} axisLine={false} fontSize={11}/>
+                <YAxis allowDecimals={false} stroke={axisColor} tickLine={false} axisLine={false} fontSize={11}/>
+                <Tooltip contentStyle={tooltipStyle} cursor={cursorStyle}/><Bar dataKey="count" fill="#0b9674" radius={[7,7,0,0]}/></BarChart>}
+          </ResponsiveContainer>
+        </div>
+      </section>
+
+      <section className={sectionClass}>
+        <div className="flex items-center justify-between gap-3">
+          <div><h2 className="text-lg font-bold">Perhatian prioritas</h2><p className="mt-1 text-xs text-[#89a094] dark:text-[#b6c3cf]">Laporan terkini berisiko tinggi</p></div>
+          <span className="rounded-full bg-[#fff1ec] dark:bg-[#202b37] px-3 py-1.5 text-xs font-bold text-[#b84c38] dark:text-[#ffc2b4]">{priority.length} prioritas</span>
+        </div>
+        <div className="mt-5 space-y-3">
+          {priorities.length === 0 ? <div className="flex min-h-[195px] flex-col items-center justify-center rounded-2xl bg-[#f3f9f2] dark:bg-[#202b37] text-center">
+            <CheckCircle2 size={30} className="text-[#0b9674] dark:text-[#59dca9]"/><p className="mt-3 font-semibold">Belum ada laporan prioritas tinggi</p><p className="mt-1 text-xs text-[#8aa191] dark:text-[#b6c3cf]">Menampilkan 8 laporan paling baru.</p>
+          </div> : priorities.slice(0,4).map((a) => <Link key={a.id} href={`/admin/alerts/${a.id}`} className="flex items-center gap-3 rounded-2xl border border-[#f5e4db] dark:border-[#374453] bg-[#fffaf6] dark:bg-[#202b37] p-3 transition hover:border-[#eebcad]">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#fff0e9] dark:bg-[#202b37] text-[#b4503d] dark:text-[#ffc2b4]"><AlertTriangle size={19}/></span>
+            <span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold">{a.title}</span><span className="mt-1 block text-xs text-[#b58f7d] dark:text-[#ffc2b4]">{fmt(a.createdAt)}</span></span>
+            <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${riskStyle[a.riskLevel || ""] || "bg-gray-100"}`}>{a.riskLevel || "Belum dinilai"}</span>
+          </Link>)}
+        </div>
+        <Link href="/admin/alerts" className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-[#0b8668] dark:text-[#59dca9]">Lihat seluruh laporan <ArrowRight size={16}/></Link>
+      </section>
+    </div>
+
+    <div className="grid gap-6 xl:grid-cols-[1.3fr_1fr]">
+      <section className={sectionClass}>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div><h2 className="flex items-center gap-2 text-lg font-bold"><MapPin className="text-[#0a896b] dark:text-[#59dca9]" size={21}/> Peta lokasi kejadian</h2><p className="mt-1 text-xs text-[#89a094] dark:text-[#b6c3cf]">Pilih laporan untuk melihat titik lokasinya</p></div>
+          <span className="rounded-full bg-[#edf6ee] dark:bg-[#202b37] px-3 py-1.5 text-xs font-semibold text-[#16816a] dark:text-[#59dca9]">{mapped.length} titik terbaru</span>
+        </div>
+        {picked ? <>
+          <div className="overflow-hidden rounded-2xl border border-[#dbe9e0] dark:border-[#374453]">
+            <iframe title={`Peta lokasi ${picked.title}`} loading="lazy" className="h-[260px] w-full"
+              referrerPolicy="no-referrer"
+              src={`https://www.openstreetmap.org/export/embed.html?bbox=${picked.longitude-0.012}%2C${picked.latitude-0.008}%2C${picked.longitude+0.012}%2C${picked.latitude+0.008}&layer=mapnik&marker=${picked.latitude}%2C${picked.longitude}`}/>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {mapped.slice(0,6).map((a) => <button key={a.id} onClick={() => setSelected(a.id)}
+              className={`max-w-[200px] truncate rounded-full border px-3 py-2 text-xs font-semibold ${picked.id === a.id ? "border-[#087d65] bg-[#087d65] text-white" : "border-[#d7e7db] dark:border-[#374453] text-[#376957] dark:text-[#59dca9] hover:bg-[#edf6ee] dark:hover:bg-[#29483a]"}`}>{a.title}</button>)}
+          </div>
+          <Link href={`/admin/alerts/${picked.id}`} className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-[#0a8a6b] dark:text-[#59dca9]">Buka detail lokasi <ArrowRight size={15}/></Link>
+        </> : <div className="flex h-[260px] flex-col items-center justify-center rounded-2xl bg-[#f3f8f4] dark:bg-[#202b37] text-[#8aa395] dark:text-[#b6c3cf]"><MapPin size={30}/><p className="mt-3 text-sm">Belum ada lokasi laporan terbaru</p></div>}
+      </section>
+
+      <section className={sectionClass}>
+        <div className="mb-5 flex items-center justify-between">
+          <div><h2 className="text-lg font-bold">Aktivitas terbaru</h2><p className="mt-1 text-xs text-[#89a094] dark:text-[#b6c3cf]">Jejak kegiatan sistem</p></div>
+          <Link href="/admin/activity" className="text-xs font-bold text-[#0b8668] dark:text-[#59dca9]">Lihat semua</Link>
+        </div>
+        <div className="space-y-3">
+          {(data?.recentLogs || []).slice(0,5).map((log) => <div key={log.id} className="flex items-start gap-3 border-b border-[#edf2ed] dark:border-[#374453] pb-3 last:border-b-0">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#e9f5ed] dark:bg-[#202b37] text-[#12866a] dark:text-[#59dca9]"><Activity size={18}/></span>
+            <div className="min-w-0"><p className="line-clamp-2 text-sm font-medium">{log.action === "ADMIN_LOGIN" ? "Login administrator" : log.action}</p>
+              <p className="mt-1 text-xs text-[#819b8d] dark:text-[#b6c3cf]">{log.userName || "Sistem"} · {fmt(log.createdAt)}</p></div>
+          </div>)}
+          {!loading && !data?.recentLogs?.length && <p className="py-12 text-center text-sm text-[#8ba493] dark:text-[#b6c3cf]">Belum ada aktivitas tercatat.</p>}
+        </div>
+      </section>
+    </div>
+
+    <ReportDownloadPanel />
+  </div>;
 }

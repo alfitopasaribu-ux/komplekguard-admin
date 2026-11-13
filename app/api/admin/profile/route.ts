@@ -1,64 +1,109 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getUserFromCookie, signToken, AUTH_COOKIE_OPTIONS } from "@/lib/auth";
 import bcrypt from "bcryptjs";
 
+const ADMIN_ROLES = ["ADMIN", "KETUA_RT"];
+const MAX_IMAGE_DATA_LENGTH = 3_000_000;
+const IMAGE_DATA = /^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/=]+)$/;
+
+async function currentUser(req: NextRequest) {
+  const session = await getUserFromCookie(req);
+  if (!session) return null;
+  const user = await prisma.user.findUnique({ where: { id: session.userId } });
+  if (!user || !user.isActive || !ADMIN_ROLES.includes(user.role)) return null;
+  return user;
+}
+
+const safeProfile = {
+  id: true, name: true, email: true, phone: true, address: true,
+  image: true, role: true, isActive: true,
+} as const;
+
 export async function GET(req: NextRequest) {
   try {
-    const session = await getUserFromCookie(req);
-    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    const user = await prisma.user.findUnique({
-      where: { id: session.userId },
-      select: { id: true, name: true, email: true, phone: true, address: true, image: true, role: true },
+    const user = await currentUser(req);
+    if (!user) return NextResponse.json({ error: "Tidak memiliki akses." }, { status: 401 });
+    const profile = await prisma.user.findUnique({
+      where: { id: user.id }, select: safeProfile,
     });
-    return NextResponse.json({ user });
-  } catch (e: any) {
-    console.error(e);
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    return NextResponse.json({ user: profile }, { headers: { "Cache-Control": "no-store" } });
+  } catch (error) {
+    console.error("Unable to load admin profile", error);
+    return NextResponse.json({ error: "Gagal memuat profil." }, { status: 500 });
   }
 }
 
 export async function PATCH(req: NextRequest) {
   try {
-    const session = await getUserFromCookie(req);
-    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const user = await currentUser(req);
+    if (!user) return NextResponse.json({ error: "Tidak memiliki akses." }, { status: 401 });
 
-    const body = await req.json();
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return NextResponse.json({ error: "Data formulir tidak valid." }, { status: 400 });
+    }
+
     const { name, phone, address, image, currentPassword, newPassword } = body;
+    if (typeof name !== "string" || !name.trim() || name.trim().length > 100) {
+      return NextResponse.json({ error: "Nama wajib diisi, maksimal 100 karakter." }, { status: 400 });
+    }
+    if (typeof phone !== "string" || phone.length > 30) {
+      return NextResponse.json({ error: "Nomor telepon tidak valid." }, { status: 400 });
+    }
+    if (typeof address !== "string" || address.length > 500) {
+      return NextResponse.json({ error: "Alamat maksimal 500 karakter." }, { status: 400 });
+    }
+    if (image !== undefined && image !== null) {
+      if (typeof image !== "string" || image.length > MAX_IMAGE_DATA_LENGTH || !IMAGE_DATA.test(image)) {
+        return NextResponse.json({ error: "Format atau ukuran foto tidak valid. Gunakan JPEG, PNG, atau WebP." }, { status: 400 });
+      }
+    }
 
-    const updateData: any = {};
-    if (name !== undefined) updateData.name = name;
-    if (phone !== undefined) updateData.phone = phone || null;
-    if (address !== undefined) updateData.address = address || null;
+    const updateData: {
+      name: string; phone: string | null; address: string | null;
+      image?: string | null; passwordHash?: string;
+    } = {
+      name: name.trim(), phone: phone.trim() || null, address: address.trim() || null,
+    };
     if (image !== undefined) updateData.image = image || null;
 
-    if (newPassword) {
-      if (!currentPassword) return NextResponse.json({ error: "Password lama wajib diisi" }, { status: 400 });
-      const user = await prisma.user.findUnique({ where: { id: session.userId } });
-      if (!user) return NextResponse.json({ error: "User tidak ditemukan" }, { status: 404 });
-      const match = await bcrypt.compare(currentPassword, user.passwordHash);
-      if (!match) return NextResponse.json({ error: "Password lama salah" }, { status: 400 });
+    if (newPassword !== undefined && newPassword !== "") {
+      if (typeof newPassword !== "string" || newPassword.length < 12 || newPassword.length > 128) {
+        return NextResponse.json({ error: "Kata sandi baru wajib 12–128 karakter." }, { status: 400 });
+      }
+      if (typeof currentPassword !== "string" || !currentPassword) {
+        return NextResponse.json({ error: "Masukkan kata sandi saat ini." }, { status: 400 });
+      }
+      if (!await bcrypt.compare(currentPassword, user.passwordHash)) {
+        return NextResponse.json({ error: "Kata sandi saat ini salah." }, { status: 400 });
+      }
+      if (await bcrypt.compare(newPassword, user.passwordHash)) {
+        return NextResponse.json({ error: "Kata sandi baru tidak boleh sama dengan yang lama." }, { status: 400 });
+      }
       updateData.passwordHash = await bcrypt.hash(newPassword, 12);
     }
 
-    const user = await prisma.user.update({
-      where: { id: session.userId },
-      data: updateData,
-      select: { id: true, name: true, email: true, phone: true, address: true, image: true, role: true },
-    });
-
-    await prisma.activityLog.create({
-      data: { userId: session.userId, action: "UPDATE_PROFILE", description: "Admin mengupdate profil" },
+    const saved = await prisma.$transaction(async (tx) => {
+      const updated = await tx.user.update({
+        where: { id: user.id }, data: updateData, select: safeProfile,
+      });
+      await tx.activityLog.create({
+        data: { userId: user.id, action: "UPDATE_PROFILE", description: "Administrator memperbarui profil akun" },
+      });
+      return updated;
     });
 
     revalidatePath("/admin", "layout");
-    const newToken = await signToken({ userId: session.userId, email: session.email, name: user.name, role: session.role });
-    const res = NextResponse.json({ success: true, user });
-    res.cookies.set("kg-admin-token", newToken, AUTH_COOKIE_OPTIONS);
-    return res;
-  } catch (e: any) {
-    console.error(e);
-    return NextResponse.json({ error: e.message || "Gagal menyimpan" }, { status: 500 });
+    const token = await signToken({
+      userId: user.id, email: saved.email, name: saved.name, role: saved.role,
+    });
+    const response = NextResponse.json({ success: true, user: saved });
+    response.cookies.set("kg-admin-token", token, AUTH_COOKIE_OPTIONS);
+    return response;
+  } catch (error) {
+    console.error("Unable to save admin profile", error);
+    return NextResponse.json({ error: "Gagal menyimpan perubahan profil." }, { status: 500 });
   }
 }

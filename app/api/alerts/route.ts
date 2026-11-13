@@ -6,6 +6,13 @@ export async function GET(req: NextRequest) {
   try {
     const user = await getUserFromCookie(req);
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const staff = await prisma.user.findUnique({
+      where: { id: user.userId },
+      select: { role: true, neighborhoodId: true, isActive: true },
+    });
+    if (!staff?.isActive || !["ADMIN", "KETUA_RT"].includes(staff.role)) {
+      return NextResponse.json({ error: "Akses ditolak." }, { status: 403 });
+    }
 
     const { searchParams } = new URL(req.url);
     const search = searchParams.get("search") || "";
@@ -16,6 +23,10 @@ export async function GET(req: NextRequest) {
     const skip = (page - 1) * limit;
 
     const where: any = {};
+    if (staff.role === "KETUA_RT") {
+      if (!staff.neighborhoodId) return NextResponse.json({ alerts: [], total: 0, page, totalPages: 0 });
+      where.neighborhoodId = staff.neighborhoodId;
+    }
     if (search) where.OR = [{ title: { contains: search, mode: "insensitive" } }, { user: { name: { contains: search, mode: "insensitive" } } }];
     if (status) where.status = status;
     if (riskLevel) where.riskLevel = riskLevel;
@@ -32,7 +43,26 @@ export async function GET(req: NextRequest) {
       prisma.alert.count({ where }),
     ]);
 
-    return NextResponse.json({ alerts, total, page, totalPages: Math.ceil(total / limit) });
+    const logs = alerts.length ? await prisma.activityLog.findMany({
+      where: { action: { in: alerts.map(a => "GUARDIAN_VERIFY:" + a.id) } },
+      select: { action: true, description: true },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    }) : [];
+    const checks = new Map<string, string>();
+    for (const log of logs) {
+      const id = log.action.slice("GUARDIAN_VERIFY:".length);
+      if (checks.has(id)) continue;
+      try {
+        const result = JSON.parse(log.description || "{}");
+        if (["TERVERIFIKASI", "PERLU_PEMERIKSAAN", "DITOLAK"].includes(result.status)) {
+          checks.set(id, result.status);
+        }
+      } catch { /* Ignore malformed historical log. */ }
+    }
+    return NextResponse.json({
+      alerts: alerts.map(a => ({ ...a, verificationStatus: checks.get(a.id) || "BELUM_DIVERIFIKASI" })),
+      total, page, totalPages: Math.ceil(total / limit),
+    });
   } catch (e) {
     console.error(e);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });

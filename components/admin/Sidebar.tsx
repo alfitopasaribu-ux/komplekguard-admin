@@ -1,77 +1,70 @@
-﻿"use client";
-import { usePathname, useRouter } from "next/navigation";
+"use client";
+
 import Link from "next/link";
-import { LayoutDashboard, AlertTriangle, Activity, LogOut, Shield, ChevronRight, User } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { Activity, AlertTriangle, ChevronRight, LayoutDashboard, LogOut, ShieldCheck, UserRound } from "lucide-react";
 import { toast } from "sonner";
 
-const nav = [
-  { href: "/admin/profile", icon: User, label: "Profil" },
-  { href: "/admin", icon: LayoutDashboard, label: "Dashboard", exact: true },
-  { href: "/admin/alerts", icon: AlertTriangle, label: "Data Alert" },
-  { href: "/admin/activity", icon: Activity, label: "Log Aktivitas" },
+const navigation = [
+  { href: "/admin", label: "Ringkasan", icon: LayoutDashboard, exact: true },
+  { href: "/admin/alerts", label: "Laporan Warga", icon: AlertTriangle },
+  { href: "/admin/activity", label: "Log Aktivitas", icon: Activity },
+  { href: "/admin/profile", label: "Profil Admin", icon: UserRound },
 ];
 
 export default function AdminSidebar({ user }: { user: any }) {
   const pathname = usePathname();
   const router = useRouter();
 
-  const logout = async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
-    toast.success("Berhasil logout");
-    router.push("/login");
-    router.refresh();
-  };
+  async function logout() {
+    try {
+      const response = await fetch("/api/auth/logout", { method: "POST" });
+      if (!response.ok) throw new Error();
+      router.replace("/login");
+      router.refresh();
+      toast.success("Anda telah keluar.");
+    } catch {
+      toast.error("Gagal keluar. Silakan coba lagi.");
+    }
+  }
 
   return (
-    <aside className="w-64 h-screen bg-[#0a1020] border-r border-white/5 flex flex-col flex-shrink-0">
-      <div className="p-6 border-b border-white/5">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-cyan-500/10 border border-cyan-500/20 overflow-hidden flex items-center justify-center">
-            {user?.image ? (
-              <img src={user.image} alt="avatar" className="w-full h-full object-cover rounded-xl" />
-            ) : (
-              <Shield className="w-5 h-5 text-cyan-400" />
-            )}
-          </div>
-          <div>
-            <p className="font-bold text-sm text-white leading-none">{user?.name || "KomplekGuard AI"}</p>
-            <p className="text-xs text-white/30 mt-0.5 font-mono">{user?.role || "Admin Panel"}</p>
-          </div>
+    <aside className="flex h-full w-full flex-col border-r border-[#dce8dd] bg-[#f0f6ee] text-[#153e32] dark:border-[#374453] dark:bg-[#111820] dark:text-[#eef2f7]">
+      <div className="flex items-center gap-3 border-b border-[#dce8dd] dark:border-[#374453] px-5 py-6">
+        <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-[#087d65] text-white shadow-sm"><ShieldCheck size={26}/></span>
+        <div className="min-w-0">
+          <p className="truncate text-base font-bold tracking-tight">KomplekGuard <span className="text-[#0b9978]">AI</span></p>
+          <p className="text-[10px] font-bold uppercase tracking-[.2em] text-[#7b9b8a] dark:text-[#aebecd]">Admin workspace</p>
         </div>
       </div>
 
-      <nav className="flex-1 p-4 space-y-1">
-        {nav.map(item => {
-          const active = item.exact ? pathname === item.href : pathname.startsWith(item.href);
+      <div className="px-5 pb-2 pt-7 text-[11px] font-bold uppercase tracking-[.2em] text-[#8aa293] dark:text-[#aebecd]">Workspace</div>
+      <nav aria-label="Navigasi administrator" className="flex-1 space-y-1.5 px-3 py-2">
+        {navigation.map(({ href, label, icon: Icon, exact }) => {
+          const active = exact ? pathname === href : pathname.startsWith(href);
           return (
-            <Link key={item.href} href={item.href}>
-              <div className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group cursor-pointer ${active ? "bg-cyan-500 text-black" : "text-white/40 hover:text-white hover:bg-white/5"}`}>
-                <item.icon className={`w-4 h-4 flex-shrink-0 ${active ? "text-black" : "text-white/30 group-hover:text-white/60"}`} />
-                <span className="flex-1">{item.label}</span>
-                {active && <ChevronRight className="w-3.5 h-3.5" />}
-              </div>
+            <Link href={href} key={href} aria-current={active ? "page" : undefined}
+              className={`group flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-semibold transition-colors ${active ? "bg-[#087d65] text-white shadow-sm" : "text-[#648075] hover:bg-white hover:text-[#14513e] dark:text-[#bac9d4] dark:hover:bg-[#263442] dark:hover:text-[#eef2f7]"}`}>
+              <Icon size={19} className="shrink-0" />
+              <span className="flex-1">{label}</span>
+              {active && <ChevronRight size={16}/>}
             </Link>
           );
         })}
       </nav>
 
-      <div className="p-4 border-t border-white/5">
-        <div className="flex items-center gap-3 px-3 py-2.5 mb-2 rounded-xl bg-white/[0.03]">
-          <div className="w-8 h-8 rounded-lg bg-cyan-500 flex-shrink-0 overflow-hidden">
-            {user?.image ? (
-              <img src={user.image} alt="avatar" className="w-full h-full object-cover rounded-lg" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-black text-xs font-bold">{user?.name?.charAt(0)?.toUpperCase() || "A"}</div>
-            )}
-          </div>
+      <div className="border-t border-[#dce8dd] dark:border-[#374453] p-4">
+        <div className="mb-3 flex items-center gap-3 rounded-2xl border border-[#deebdf] bg-white dark:border-[#3b4a58] dark:bg-[#1d2935] px-3 py-3">
+          {user?.image
+            ? <img src={user.image} alt="Avatar administrator" className="h-10 w-10 shrink-0 rounded-xl object-cover"/>
+            : <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#e0f3e6] font-bold text-[#087d65]">{String(user?.name || "A").charAt(0).toUpperCase()}</span>}
           <div className="min-w-0">
-            <p className="text-xs font-medium text-white truncate">{user?.name}</p>
-            <p className="text-xs text-white/30 truncate font-mono">{user?.role}</p>
+            <p className="truncate text-sm font-bold">{user?.name || "Administrator"}</p>
+            <p className="text-xs text-[#829e8c] dark:text-[#b5c4d0]">{user?.role || "ADMIN"}</p>
           </div>
         </div>
-        <button onClick={logout} className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium text-red-400 hover:bg-red-500/10 transition-all">
-          <LogOut className="w-4 h-4" />
-          Keluar
+        <button onClick={logout} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-[#ae4b45] dark:text-[#ffaca3] hover:bg-[#fae9e6] dark:hover:bg-[#442d2b]">
+          <LogOut size={18}/> Keluar dari sistem
         </button>
       </div>
     </aside>
